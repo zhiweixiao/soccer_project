@@ -9,7 +9,7 @@ output: pdf_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-```{r, warning=FALSE}
+```{r, warning=FALSE, message=FALSE}
 library(DBI)
 library(RSQLite)
 library(tidyverse)
@@ -33,6 +33,8 @@ names(match_data)[13] = "away_team_name"
 head(match_data)
 team_data %>% filter(team_api_id == 8203)
 cor(match_data$home_team_goal, match_data$away_team_goal)
+mean(match_data$home_team_goal)
+mean(match_data$away_team_goal)
 ```
 
 
@@ -62,11 +64,21 @@ cdfcomp(list(fit.in4,fit.in5,fit.in6),legendtext=c("Normal","pois","nbinom"))
 ppcomp(list(fit.in4,fit.in5,fit.in6),legendtext=c("Normal","pois","nbinom"))
 ```
 
-```{r}
-
+```{r,message=FALSE, warning=FALSE}
+model1 <- glm(home_team_goal ~ home_team_name + away_team_name, family="poisson", data=match_data)
+summary(model1)
 ```
 
 
+
+```{r,message=FALSE, warning=FALSE}
+model2 <- glm(away_team_goal ~ home_team_name + away_team_name + home_team_goal, family="poisson", data=match_data)
+summary(model2)
+```
+
+```{r}
+
+```
 
 
 
