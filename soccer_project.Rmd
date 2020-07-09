@@ -32,12 +32,42 @@ names(match_data)[13] = "away_team_name"
 
 head(match_data)
 team_data %>% filter(team_api_id == 8203)
+cor(match_data$home_team_goal, match_data$away_team_goal)
 ```
 
+
+```{r, message=FALSE, warning=FALSE}
+library(fitdistrplus)
+par(mfrow=c(2,2))
+fit.in1 <- fitdist(match_data$home_team_goal, "norm")
+fit.in2 <- fitdist(match_data$home_team_goal, "pois")
+fit.in3 <- fitdist(match_data$home_team_goal, "nbinom")
+
+denscomp(list(fit.in1,fit.in2,fit.in3),legendtext=c("Normal","pois","nbinom"))
+qqcomp(list(fit.in1,fit.in2,fit.in3),legendtext=c("Normal","pois","nbinom"))
+cdfcomp(list(fit.in1,fit.in2,fit.in3),legendtext=c("Normal","pois","nbinom"))
+ppcomp(list(fit.in1,fit.in2,fit.in3),legendtext=c("Normal","pois","nbinom"))
+```
+
+
+```{r,message=FALSE, warning=FALSE}
+par(mfrow=c(2,2))
+fit.in4 <- fitdist(match_data$away_team_goal, "norm")
+fit.in5 <- fitdist(match_data$away_team_goal, "pois")
+fit.in6 <- fitdist(match_data$away_team_goal, "nbinom")
+
+denscomp(list(fit.in4,fit.in5,fit.in6),legendtext=c("Normal","pois","nbinom"))
+qqcomp(list(fit.in4,fit.in5,fit.in6),legendtext=c("Normal","pois","nbinom"))
+cdfcomp(list(fit.in4,fit.in5,fit.in6),legendtext=c("Normal","pois","nbinom"))
+ppcomp(list(fit.in4,fit.in5,fit.in6),legendtext=c("Normal","pois","nbinom"))
+```
 
 ```{r}
-colnames(match_data)
+
 ```
+
+
+
 
 
 
