@@ -1,0 +1,45 @@
+---
+title: "soccer_project"
+author: "zhiwei xiao"
+date: "7/9/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, warning=FALSE}
+library(DBI)
+library(RSQLite)
+library(tidyverse)
+temp <- dbConnect(SQLite(), "/Users/xiaozhiwei/Downloads/database.sqlite")
+as.data.frame(dbListTables(temp))
+match_data <- dbReadTable(temp,"Match") %>% select(1:11)
+team_id <- dbReadTable(temp,"Team") %>% select(team_api_id, team_long_name)
+```
+
+
+
+```{r}
+colnames(match_data)
+colnames(team_id)
+match_data <- match_data %>% left_join(team_id, by = c("home_team_api_id" = "team_api_id"))
+names(match_data)[12] = "home_team_name"
+match_data <- match_data %>% left_join(team_id, by = c("away_team_api_id" = "team_api_id"))
+names(match_data)[13] = "away_team_name"
+
+
+head(match_data)
+team_data %>% filter(team_api_id == 8203)
+```
+
+
+```{r}
+colnames(match_data)
+```
+
+
+
+
+
