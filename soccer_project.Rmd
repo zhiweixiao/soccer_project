@@ -13,33 +13,41 @@ knitr::opts_chunk$set(echo = TRUE)
 library(DBI)
 library(RSQLite)
 library(tidyverse)
+library(boot)
+library(fitdistrplus)
+library(qqplotr)
+library(gamlss.dist)
+
 temp <- dbConnect(SQLite(), "/Users/xiaozhiwei/Downloads/database.sqlite")
 as.data.frame(dbListTables(temp))
-match_data <- dbReadTable(temp,"Match") %>% select(1:11)
-team_id <- dbReadTable(temp,"Team") %>% select(team_api_id, team_long_name)
+match_data <- dbReadTable(temp,"Match")
+team_id <- dbReadTable(temp,"Team")
+league_id <- dbReadTable(temp,"League")
+
+team_id <- team_id[,c("team_api_id", "team_long_name")]
+match_data <- match_data[,1:11]
+league_id <- league_id[,c(1,3)]
 ```
 
 
 
 ```{r}
-colnames(match_data)
-colnames(team_id)
 match_data <- match_data %>% left_join(team_id, by = c("home_team_api_id" = "team_api_id"))
 names(match_data)[12] = "home_team_name"
 match_data <- match_data %>% left_join(team_id, by = c("away_team_api_id" = "team_api_id"))
 names(match_data)[13] = "away_team_name"
-
+match_data <- match_data %>% left_join(league_id, by = c("league_id" = "id"))
+names(match_data)[14] = "league_name"
 
 head(match_data)
-team_data %>% filter(team_api_id == 8203)
+
+
+
 cor(match_data$home_team_goal, match_data$away_team_goal)
-mean(match_data$home_team_goal)
-mean(match_data$away_team_goal)
 ```
 
 
 ```{r, message=FALSE, warning=FALSE}
-library(fitdistrplus)
 par(mfrow=c(2,2))
 fit.in1 <- fitdist(match_data$home_team_goal, "norm")
 fit.in2 <- fitdist(match_data$home_team_goal, "pois")
@@ -64,21 +72,242 @@ cdfcomp(list(fit.in4,fit.in5,fit.in6),legendtext=c("Normal","pois","nbinom"))
 ppcomp(list(fit.in4,fit.in5,fit.in6),legendtext=c("Normal","pois","nbinom"))
 ```
 
+
+
+```{r}
+## data is not over-dispersed
+r <- c(mean(match_data$home_team_goal), var(match_data$home_team_goal))
+c(mean=r[1], var=r[2], ratio=r[2]/r[1])
+
+
+fit = glm(home_team_goal ~ home_team_name + away_team_name, family="poisson", data = match_data)
+fit.overdisp = glm(home_team_goal ~ home_team_name + away_team_name,family="quasipoisson",data = match_data)
+summary(fit.overdisp)$dispersion # dispersion coefficient
+pchisq(summary(fit.overdisp)$dispersion * fit$df.residual, fit$df.residual, lower = F)
+#significance for overdispersion, if less than 0.05, over-dispersion is more appropriate
+```
+
+
 ```{r,message=FALSE, warning=FALSE}
+## should not use zero-inflated model
 model1 <- glm(home_team_goal ~ home_team_name + away_team_name, family="poisson", data=match_data)
-summary(model1)
+
+zobs <- match_data$home_team_goal == 0
+
+zpoi <- exp(-exp(predict(model1)))
+
+c(obs=mean(zobs), poi=mean(zpoi))
+```
+
+
+```{r}
+## reject poisson model if p-value is smaller than 0.05/8
+set.seed(200)
+season_2008_2009_data = filter(match_data, season == "2008/2009")
+table(season_2008_2009_data$home_team_goal)
+season_2008_2009_probs = dpois(0:7, lambda = mean(season_2008_2009_data$home_team_goal))
+season_2008_2009_divide = season_2008_2009_probs / sum(season_2008_2009_probs)
+chisq.test(x = c(762,1090,829,418,157,48,17,5), p = season_2008_2009_divide) #pass
+
+plotdist(season_2008_2009_data$home_team_goal, "pois", para=list(lambda = mean(season_2008_2009_data$home_team_goal)))
+
+
+season_2009_2010_data = filter(match_data, season == "2009/2010")
+table(season_2009_2010_data$home_team_goal)
+season_2009_2010_probs = dpois(0:9, lambda = mean(season_2009_2010_data$home_team_goal))
+season_2009_2010_divide = season_2009_2010_probs/sum(season_2009_2010_probs)
+chisq.test(x = as.numeric(table(season_2009_2010_data$home_team_goal)), p = season_2009_2010_divide) # not pass
+
+plotdist(season_2009_2010_data$home_team_goal, "pois", para=list(lambda = mean(season_2009_2010_data$home_team_goal)))
+
+
+season_2010_2011_data = filter(match_data, season == "2010/2011")
+table(season_2010_2011_data$home_team_goal)
+season_2010_2011_probs = dpois(0:10, lambda = mean(season_2010_2011_data$home_team_goal))
+season_2010_2011_divide = season_2010_2011_probs/sum(season_2010_2011_probs)
+chisq.test(x = c(710,1082,812,408,162,60,18,5,1,1,1), p = season_2010_2011_divide) # not pass
+
+
+season_2011_2012_data = filter(match_data, season == "2011/2012")
+table(season_2011_2012_data$home_team_goal)
+season_2011_2012_probs = dpois(0:8, lambda = mean(season_2011_2012_data$home_team_goal))
+season_2011_2012_divide = season_2011_2012_probs/sum(season_2011_2012_probs)
+chisq.test(x = c(752,1000,765,411,200,62,21,7,2), p = season_2011_2012_divide) # not pass
+
+
+season_2012_2013_data = filter(match_data, season == "2012/2013")
+table(season_2012_2013_data$home_team_goal)
+season_2012_2013_probs = dpois(0:9, lambda = mean(season_2012_2013_data$home_team_goal))
+season_2012_2013_divide = season_2012_2013_probs/sum(season_2012_2013_probs)
+chisq.test(x = c(742,1033,812,406,187,57,19,2,1,1), p = season_2012_2013_divide) # pass
+
+
+
+season_2013_2014_data = filter(match_data, season == "2013/2014")
+dim(season_2013_2014_data)
+table(season_2013_2014_data$home_team_goal)
+season_2013_2014_probs = dpois(0:7, lambda = mean(season_2013_2014_data$home_team_goal))
+season_2013_2014_divide = season_2013_2014_probs/sum(season_2013_2014_probs)
+chisq.test(x = c(675,956,737,401,189,51,18,5), p = season_2013_2014_divide) # pass
+
+
+season_2014_2015_data = filter(match_data, season == "2014/2015")
+table(season_2014_2015_data$home_team_goal)
+season_2014_2015_probs = dpois(0:9, lambda = mean(season_2014_2015_data$home_team_goal))
+season_2014_2015_divide = season_2014_2015_probs/sum(season_2014_2015_probs)
+chisq.test(x = c(767,1091,804,425,153,51,28,3,2,1), p = season_2014_2015_divide) # not pass
+
+season_2015_2016_data = filter(match_data, season == "2015/2016")
+table(season_2015_2016_data$home_team_goal)
+season_2015_2016_probs = dpois(c(0,1,2,3,4,5,6,7,8,10), lambda = mean(season_2015_2016_data$home_team_goal))
+season_2015_2016_divide = season_2015_2016_probs/sum(season_2015_2016_probs)
+chisq.test(x = c(774,1059,808,429,149,75,26,4,1,1), p = season_2015_2016_divide) # not pass
+```
+
+
+```{r}
+set.seed(200)
+table(season_2008_2009_data$away_team_goal)
+season_2008_2009_probs_away = dpois(0:7, lambda = mean(season_2008_2009_data$away_team_goal))
+season_2008_2009_divide_away = season_2008_2009_probs_away / sum(season_2008_2009_probs_away)
+chisq.test(x = c(1178,1141,636,266,78,21,5,1), p = season_2008_2009_divide_away) # pass
+
+
+table(season_2009_2010_data$away_team_goal)
+season_2009_2010_probs_away = dpois(0:7, lambda = mean(season_2009_2010_data$away_team_goal))
+season_2009_2010_divide_away = season_2009_2010_probs_away/sum(season_2009_2010_probs_away)
+chisq.test(x = c(1126,1107,620,248,90,32,6,1), p = season_2009_2010_divide_away) # not pass
+
+
+table(season_2010_2011_data$away_team_goal)
+season_2010_2011_probs_away = dpois(0:8, lambda = mean(season_2010_2011_data$away_team_goal))
+season_2010_2011_divide_away = season_2010_2011_probs_away/sum(season_2010_2011_probs_away)
+chisq.test(x = c(1111,1129,646,258,88,19,6,1,2), p = season_2010_2011_divide_away) # not pass
+
+
+table(season_2011_2012_data$away_team_goal)
+season_2011_2012_probs_away = dpois(0:7, lambda = mean(season_2011_2012_data$away_team_goal))
+season_2011_2012_divide_away = season_2011_2012_probs_away/sum(season_2011_2012_probs_away)
+chisq.test(x = c(1107,1107,626,252,86,29,12,1), p = season_2011_2012_divide_away) # not pass
+
+
+
+table(season_2012_2013_data$away_team_goal)
+season_2012_2013_probs_away = dpois(0:7, lambda = mean(season_2012_2013_data$away_team_goal))
+season_2012_2013_divide_away = season_2012_2013_probs_away/sum(season_2012_2013_probs_away)
+chisq.test(x = c(1017,1133,678,287,103,29,12,1), p = season_2012_2013_divide_away) # not pass
+
+
+
+table(season_2013_2014_data$away_team_goal)
+season_2013_2014_probs_away = dpois(0:7, lambda = mean(season_2013_2014_data$away_team_goal))
+season_2013_2014_divide_away = season_2013_2014_probs_away/sum(season_2013_2014_probs_away)
+chisq.test(x = c(994,1035,611,270,84,31,5,2), p = season_2013_2014_divide_away) # not pass
+
+
+table(season_2014_2015_data$away_team_goal)
+season_2014_2015_probs_away = dpois(0:8, lambda = mean(season_2014_2015_data$away_team_goal))
+season_2014_2015_divide_away = season_2014_2015_probs_away/sum(season_2014_2015_probs_away)
+chisq.test(x = c(1127,1135,666,272,84,29,8,2,2), p = season_2014_2015_divide_away) # not pass
+
+
+table(season_2015_2016_data$away_team_goal)
+season_2015_2016_probs_away = dpois(0:9, lambda = mean(season_2015_2016_data$away_team_goal))
+season_2015_2016_divide_away = season_2015_2016_probs_away/sum(season_2015_2016_probs_away)
+chisq.test(x = c(1027,1202,663,292,105,25,9,1,1,1), p = season_2015_2016_divide_away) # not pass
+```
+
+
+```{r}
+table(match_data$league_name)
+Belgium_data = subset(match_data, league_name == "Belgium Jupiler League")
+England_data = subset(match_data, league_name == "England Premier League")
+France_data = subset(match_data, league_name == "France Ligue 1")
+Germany_data = subset(match_data, league_name == "Germany 1. Bundesliga")
+Italy_data = subset(match_data, league_name == "Italy Serie A")
+Netherland_data = subset(match_data, league_name == "Netherlands Eredivisie")
+Poland_data = subset(match_data, league_name == "Poland Ekstraklasa")
+Portugal_data = subset(match_data, league_name == "Portugal Liga ZON Sagres")
+Scotland_data = subset(match_data, league_name == "Scotland Premier League")
+Spain_data = subset(match_data, league_name == "Spain LIGA BBVA")
+Switzerland_data = subset(match_data, league_name == "Switzerland Super League")
 ```
 
 
 
-```{r,message=FALSE, warning=FALSE}
-model2 <- glm(away_team_goal ~ home_team_name + away_team_name + home_team_goal, family="poisson", data=match_data)
-summary(model2)
+```{r}
+## check home_team_goal for poisson
+# set.seed(200)
+# table(Belgium_data$home_team_goal)
+# Belgium_data_probs = dpois(0:7, lambda = mean(Belgium_data$home_team_goal))
+# Belgium_data_divide = Belgium_data_probs/sum(Belgium_data_probs)
+# chisq.test(x = as.numeric(table(Belgium_data$home_team_goal)), p = Belgium_data_divide, simulate.p.value=TRUE) #pass
+# 
+# table(England_data$home_team_goal)
+# England_data_probs = dpois(0:9, lambda = mean(England_data$home_team_goal))
+# England_data_divide = England_data_probs/sum(England_data_probs)
+# chisq.test(x = as.numeric(table(England_data$home_team_goal)), p = England_data_divide, simulate.p.value=TRUE) # not pass
+# 
+# table(France_data$home_team_goal)
+# France_data_probs = dpois(0:6, lambda = mean(France_data$home_team_goal))
+# France_data_divide = France_data_probs/sum(France_data_probs)
+# chisq.test(x = as.numeric(table(France_data$home_team_goal)), p = France_data_divide, simulate.p.value=TRUE) # pass
+# 
+# table(Germany_data$home_team_goal)
+# Germany_data_probs = dpois(0:9, lambda = mean(Germany_data$home_team_goal))
+# Germany_data_divide = Germany_data_probs/sum(Germany_data_probs)
+# chisq.test(x = as.numeric(table(Germany_data$home_team_goal)), p = Germany_data_divide, simulate.p.value=TRUE) # pass
+# 
+# table(Italy_data$home_team_goal)
+# Italy_data_probs = dpois(0:7, lambda = mean(Italy_data$home_team_goal))
+# Italy_data_divide = Italy_data_probs/sum(Italy_data_probs)
+# chisq.test(x = as.numeric(table(Italy_data$home_team_goal)), p = Italy_data_divide, simulate.p.value=TRUE) # pass
+# 
+# table(Netherland_data$home_team_goal)
+# Netherland_data_probs = dpois(c(0,1,2,3,4,5,6,7,10), lambda = mean(Netherland_data$home_team_goal))
+# Netherland_data_divide = Netherland_data_probs/sum(Netherland_data_probs)
+# chisq.test(x = as.numeric(table(Netherland_data$home_team_goal)), p = Netherland_data_divide, simulate.p.value=TRUE) # not pass
+# 
+# table(Poland_data$home_team_goal)
+# Poland_data_probs = dpois(0:6, lambda = mean(Poland_data$home_team_goal))
+# Poland_data_divide = Poland_data_probs/sum(Poland_data_probs)
+# chisq.test(x = as.numeric(table(Poland_data$home_team_goal)), p = Poland_data_divide, simulate.p.value=TRUE) # pass
+# 
+# table(Portugal_data$home_team_goal)
+# Portugal_data_probs = dpois(c(0,1,2,3,4,5,6,8), lambda = mean(Portugal_data$home_team_goal))
+# Portugal_data_divide = Portugal_data_probs/sum(Portugal_data_probs)
+# chisq.test(x = as.numeric(table(Portugal_data$home_team_goal)), p = Portugal_data_divide, simulate.p.value=TRUE) # pass
+# 
+# table(Scotland_data$home_team_goal)
+# Scotland_data_probs = dpois(0:9, lambda = mean(Scotland_data$home_team_goal))
+# Scotland_data_divide = Scotland_data_probs/sum(Scotland_data_probs)
+# chisq.test(x = as.numeric(table(Scotland_data$home_team_goal)), p = Scotland_data_divide, simulate.p.value=TRUE) # not pass
+# 
+# table(Spain_data$home_team_goal)
+# Spain_data_probs = dpois(0:10, lambda = mean(Spain_data$home_team_goal))
+# Spain_data_divide = Spain_data_probs/sum(Spain_data_probs)
+# chisq.test(x = as.numeric(table(Spain_data$home_team_goal)), p = Spain_data_divide, simulate.p.value=TRUE) # not pass
+# 
+# table(Switzerland_data$home_team_goal)
+# Switzerland_data_probs = dpois(0:7, lambda = mean(Switzerland_data$home_team_goal))
+# Switzerland_data_comp = 1 - sum(Switzerland_data_probs)
+# chisq.test(x = c(as.numeric(table(Switzerland_data$home_team_goal)),0), p = c(Switzerland_data_probs, Switzerland_data_comp), simulate.p.value=TRUE) # pass
 ```
 
 ```{r}
+Belgium_data_fit_poisson = fitdistr(Belgium_data$home_team_goal, densfun = "poisson")
+Belgium_data_fit_poisson$loglik
+
+Belgium_data_fit_nb = fitdistr(Belgium_data$home_team_goal, densfun = "Negative Binomial")
+Belgium_data_fit_nb$loglik
+
+a = Belgium_data$home_team_goal
+table(a)
+sum(a == 0)/length(a)
+Belgium_data_fit_zip <- fitdist(a, 'ZIP', start = list(mu=1.609, sigma = 0.206))
 
 ```
+
 
 
 
