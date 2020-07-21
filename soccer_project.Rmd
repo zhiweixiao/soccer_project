@@ -17,6 +17,8 @@ library(boot)
 library(fitdistrplus)
 library(qqplotr)
 library(gamlss.dist)
+library(extraDistr)
+library(pscl)
 
 temp <- dbConnect(SQLite(), "/Users/xiaozhiwei/Downloads/database.sqlite")
 as.data.frame(dbListTables(temp))
@@ -39,7 +41,7 @@ names(match_data)[13] = "away_team_name"
 match_data <- match_data %>% left_join(league_id, by = c("league_id" = "id"))
 names(match_data)[14] = "league_name"
 
-head(match_data)
+table(match_data$season)
 
 
 
@@ -219,93 +221,142 @@ chisq.test(x = c(1027,1202,663,292,105,25,9,1,1,1), p = season_2015_2016_divide_
 
 
 ```{r}
-table(match_data$league_name)
-Belgium_data = subset(match_data, league_name == "Belgium Jupiler League")
-England_data = subset(match_data, league_name == "England Premier League")
-France_data = subset(match_data, league_name == "France Ligue 1")
-Germany_data = subset(match_data, league_name == "Germany 1. Bundesliga")
-Italy_data = subset(match_data, league_name == "Italy Serie A")
-Netherland_data = subset(match_data, league_name == "Netherlands Eredivisie")
-Poland_data = subset(match_data, league_name == "Poland Ekstraklasa")
-Portugal_data = subset(match_data, league_name == "Portugal Liga ZON Sagres")
-Scotland_data = subset(match_data, league_name == "Scotland Premier League")
-Spain_data = subset(match_data, league_name == "Spain LIGA BBVA")
-Switzerland_data = subset(match_data, league_name == "Switzerland Super League")
+n_distinct(match_data$home_team_name)
+n_distinct(match_data$away_team_name)
+Belgium_data = subset(match_data, league_name == "Belgium Jupiler League" & season == "2015/2016")
+England_data = subset(match_data, league_name == "England Premier League"& season == "2015/2016")
+France_data = subset(match_data, league_name == "France Ligue 1" & season == "2015/2016")
+Germany_data = subset(match_data, league_name == "Germany 1. Bundesliga" & season == "2015/2016")
+Italy_data = subset(match_data, league_name == "Italy Serie A" & season == "2015/2016")
+Netherland_data = subset(match_data, league_name == "Netherlands Eredivisie" & season == "2015/2016")
+Poland_data = subset(match_data, league_name == "Poland Ekstraklasa" & season == "2015/2016")
+Portugal_data = subset(match_data, league_name == "Portugal Liga ZON Sagres" & season == "2015/2016")
+Scotland_data = subset(match_data, league_name == "Scotland Premier League" & season == "2015/2016")
+Spain_data = subset(match_data, league_name == "Spain LIGA BBVA" & season == "2015/2016")
+Switzerland_data = subset(match_data, league_name == "Switzerland Super League" & season == "2015/2016")
 ```
 
 
-
-```{r}
-## check home_team_goal for poisson
-# set.seed(200)
-# table(Belgium_data$home_team_goal)
-# Belgium_data_probs = dpois(0:7, lambda = mean(Belgium_data$home_team_goal))
-# Belgium_data_divide = Belgium_data_probs/sum(Belgium_data_probs)
-# chisq.test(x = as.numeric(table(Belgium_data$home_team_goal)), p = Belgium_data_divide, simulate.p.value=TRUE) #pass
-# 
-# table(England_data$home_team_goal)
-# England_data_probs = dpois(0:9, lambda = mean(England_data$home_team_goal))
-# England_data_divide = England_data_probs/sum(England_data_probs)
-# chisq.test(x = as.numeric(table(England_data$home_team_goal)), p = England_data_divide, simulate.p.value=TRUE) # not pass
-# 
-# table(France_data$home_team_goal)
-# France_data_probs = dpois(0:6, lambda = mean(France_data$home_team_goal))
-# France_data_divide = France_data_probs/sum(France_data_probs)
-# chisq.test(x = as.numeric(table(France_data$home_team_goal)), p = France_data_divide, simulate.p.value=TRUE) # pass
-# 
-# table(Germany_data$home_team_goal)
-# Germany_data_probs = dpois(0:9, lambda = mean(Germany_data$home_team_goal))
-# Germany_data_divide = Germany_data_probs/sum(Germany_data_probs)
-# chisq.test(x = as.numeric(table(Germany_data$home_team_goal)), p = Germany_data_divide, simulate.p.value=TRUE) # pass
-# 
-# table(Italy_data$home_team_goal)
-# Italy_data_probs = dpois(0:7, lambda = mean(Italy_data$home_team_goal))
-# Italy_data_divide = Italy_data_probs/sum(Italy_data_probs)
-# chisq.test(x = as.numeric(table(Italy_data$home_team_goal)), p = Italy_data_divide, simulate.p.value=TRUE) # pass
-# 
-# table(Netherland_data$home_team_goal)
-# Netherland_data_probs = dpois(c(0,1,2,3,4,5,6,7,10), lambda = mean(Netherland_data$home_team_goal))
-# Netherland_data_divide = Netherland_data_probs/sum(Netherland_data_probs)
-# chisq.test(x = as.numeric(table(Netherland_data$home_team_goal)), p = Netherland_data_divide, simulate.p.value=TRUE) # not pass
-# 
-# table(Poland_data$home_team_goal)
-# Poland_data_probs = dpois(0:6, lambda = mean(Poland_data$home_team_goal))
-# Poland_data_divide = Poland_data_probs/sum(Poland_data_probs)
-# chisq.test(x = as.numeric(table(Poland_data$home_team_goal)), p = Poland_data_divide, simulate.p.value=TRUE) # pass
-# 
-# table(Portugal_data$home_team_goal)
-# Portugal_data_probs = dpois(c(0,1,2,3,4,5,6,8), lambda = mean(Portugal_data$home_team_goal))
-# Portugal_data_divide = Portugal_data_probs/sum(Portugal_data_probs)
-# chisq.test(x = as.numeric(table(Portugal_data$home_team_goal)), p = Portugal_data_divide, simulate.p.value=TRUE) # pass
-# 
-# table(Scotland_data$home_team_goal)
-# Scotland_data_probs = dpois(0:9, lambda = mean(Scotland_data$home_team_goal))
-# Scotland_data_divide = Scotland_data_probs/sum(Scotland_data_probs)
-# chisq.test(x = as.numeric(table(Scotland_data$home_team_goal)), p = Scotland_data_divide, simulate.p.value=TRUE) # not pass
-# 
-# table(Spain_data$home_team_goal)
-# Spain_data_probs = dpois(0:10, lambda = mean(Spain_data$home_team_goal))
-# Spain_data_divide = Spain_data_probs/sum(Spain_data_probs)
-# chisq.test(x = as.numeric(table(Spain_data$home_team_goal)), p = Spain_data_divide, simulate.p.value=TRUE) # not pass
-# 
-# table(Switzerland_data$home_team_goal)
-# Switzerland_data_probs = dpois(0:7, lambda = mean(Switzerland_data$home_team_goal))
-# Switzerland_data_comp = 1 - sum(Switzerland_data_probs)
-# chisq.test(x = c(as.numeric(table(Switzerland_data$home_team_goal)),0), p = c(Switzerland_data_probs, Switzerland_data_comp), simulate.p.value=TRUE) # pass
-```
-
-```{r}
-Belgium_data_fit_poisson = fitdistr(Belgium_data$home_team_goal, densfun = "poisson")
-Belgium_data_fit_poisson$loglik
-
-Belgium_data_fit_nb = fitdistr(Belgium_data$home_team_goal, densfun = "Negative Binomial")
-Belgium_data_fit_nb$loglik
-
+```{r, warning=FALSE}
 a = Belgium_data$home_team_goal
-table(a)
-sum(a == 0)/length(a)
-Belgium_data_fit_zip <- fitdist(a, 'ZIP', start = list(mu=1.609, sigma = 0.206))
+Belgium_data_fit_poisson = fitdistr(a, densfun = "poisson")
+Belgium_data_fit_poisson$loglik # pick
+Belgium_data_fit_nb = fitdistr(a, densfun = "Negative Binomial")
+Belgium_data_fit_nb$loglik
+Belgium_poisson_model <- glm(home_team_goal ~ home_team_name + away_team_name, family = "poisson", data = Belgium_data)
+summary(Belgium_poisson_model)
 
+b = England_data$home_team_goal
+England_data_fit_poisson = fitdistr(b, densfun = "poisson")
+England_data_fit_poisson$loglik
+England_data_fit_nb = fitdistr(b, densfun = "Negative Binomial")
+England_data_fit_nb$loglik
+England_data_fit_zip <- fitdist(b, distr = 'zip',start = list(lambda=mean(b),pi=sum(b == 0)/length(b)))
+England_data_fit_zip$loglik # pick
+England_zero_inflated_poisson_model <- zeroinfl(home_team_goal ~ home_team_name + away_team_name, data = England_data)
+summary(England_zero_inflated_poisson_model)
+
+
+c = France_data$home_team_goal
+France_data_fit_poisson = fitdistr(c, densfun = "poisson")
+France_data_fit_poisson$loglik
+France_data_fit_nb = fitdistr(c, densfun = "Negative Binomial")
+France_data_fit_nb$loglik # pick
+France_data_fit_zip <- fitdist(c, distr = 'zip',start = list(lambda=mean(c),pi=sum(c == 0)/length(c)))
+France_data_fit_zip$loglik
+France_negative_binomial_model <- glm.nb(home_team_goal ~ home_team_name + away_team_name, data = France_data)
+summary(France_negative_binomial_model)
+
+
+d = Germany_data$home_team_goal
+Germany_data_fit_poisson = fitdistr(d, densfun = "poisson")
+Germany_data_fit_poisson$loglik
+Germany_data_fit_nb = fitdistr(d, densfun = "Negative Binomial")
+Germany_data_fit_nb$loglik # pick
+Germany_data_fit_zip <- fitdist(d, distr = 'zip',start = list(lambda=mean(d),pi=sum(d == 0)/length(d)))
+Germany_data_fit_zip$loglik
+Germany_negative_binomial_model <- glm.nb(home_team_goal ~ home_team_name + away_team_name, data = Germany_data)
+summary(Germany_negative_binomial_model)
+
+
+e = Italy_data$home_team_goal
+Italy_data_fit_poisson = fitdistr(e, densfun = "poisson")
+Italy_data_fit_poisson$loglik
+Italy_data_fit_nb = fitdistr(e, densfun = "Negative Binomial")
+Italy_data_fit_nb$loglik
+Italy_data_fit_zip <- fitdist(e, distr = 'zip',start = list(lambda=mean(e),pi=sum(e == 0)/length(e)))
+Italy_data_fit_zip$loglik # pick
+Italy_zero_inflated_poisson_model <- zeroinfl(home_team_goal ~ home_team_name + away_team_name, data = Italy_data)
+summary(Italy_zero_inflated_poisson_model)
+
+
+
+
+f = Netherland_data$home_team_goal
+Netherland_data_fit_poisson = fitdistr(f, densfun = "poisson")
+Netherland_data_fit_poisson$loglik
+Netherland_data_fit_nb = fitdistr(f, densfun = "Negative Binomial")
+Netherland_data_fit_nb$loglik
+Netherland_data_fit_zip <- fitdist(f, distr = 'zip',start = list(lambda=mean(f),pi=sum(f == 0)/length(f)))
+Netherland_data_fit_zip$loglik # pick
+Netherland_zero_inflated_poisson_model <- zeroinfl(home_team_goal ~ home_team_name + away_team_name, data = Netherland_data)
+
+
+
+g = Poland_data$home_team_goal
+Poland_data_fit_poisson = fitdistr(g, densfun = "poisson")
+Poland_data_fit_poisson$loglik
+Poland_data_fit_nb = fitdistr(g, densfun = "Negative Binomial")
+Poland_data_fit_nb$loglik # pick
+Poland_data_fit_zip <- fitdist(g, distr = 'zip',start = list(lambda=mean(g),pi=sum(g == 0)/length(g)))
+Poland_data_fit_zip$loglik
+Poland_negative_binomial_model <- glm.nb(home_team_goal ~ home_team_name + away_team_name, data = Poland_data)
+
+
+h = Portugal_data$home_team_goal
+Portugal_data_fit_poisson = fitdistr(h, densfun = "poisson")
+Portugal_data_fit_poisson$loglik
+Portugal_data_fit_nb = fitdistr(h, densfun = "Negative Binomial")
+Portugal_data_fit_nb$loglik # pick
+Portugal_data_fit_zip <- fitdist(h, distr = 'zip',start = list(lambda=mean(h),pi=sum(h == 0)/length(h)))
+Portugal_data_fit_zip$loglik
+Portugal_negative_binomial_model <- glm.nb(home_team_goal ~ home_team_name + away_team_name, data = Portugal_data)
+
+
+i = Scotland_data$home_team_goal
+Scotland_data_fit_poisson = fitdistr(i, densfun = "poisson")
+Scotland_data_fit_poisson$loglik
+Scotland_data_fit_nb = fitdistr(i, densfun = "Negative Binomial")
+Scotland_data_fit_nb$loglik # pick
+Scotland_data_fit_zip <- fitdist(i, distr = 'zip',start = list(lambda=mean(i),pi=sum(i == 0)/length(i)))
+Scotland_data_fit_zip$loglik
+Scotland_negative_binomial_model <- glm.nb(home_team_goal ~ home_team_name + away_team_name, data = Scotland_data)
+
+
+
+j = Spain_data$home_team_goal
+Spain_data_fit_poisson = fitdistr(j, densfun = "poisson")
+Spain_data_fit_poisson$loglik
+Spain_data_fit_nb = fitdistr(j, densfun = "Negative Binomial")
+Spain_data_fit_nb$loglik # pick
+Spain_data_fit_zip <- fitdist(j, distr = 'zip',start = list(lambda=mean(j),pi=sum(j == 0)/length(j)))
+Spain_data_fit_zip$loglik
+Spain_negative_binomial_model <- glm.nb(home_team_goal ~ home_team_name + away_team_name, data = Spain_data)
+
+
+k = Switzerland_data$home_team_goal
+Switzerland_data_fit_poisson = fitdistr(k, densfun = "poisson")
+Switzerland_data_fit_poisson$loglik
+Switzerland_data_fit_nb = fitdistr(k, densfun = "Negative Binomial")
+Switzerland_data_fit_nb$loglik
+Switzerland_data_fit_zip <- fitdist(k, distr = 'zip',start = list(lambda=mean(k),pi=sum(k == 0)/length(k)))
+Switzerland_data_fit_zip$loglik # pick
+Switzerland_zero_inflated_poisson_model <- zeroinfl(home_team_goal ~ home_team_name + away_team_name, data = Switzerland_data)
+
+
+
+
+## generate simulated zip data, and then fit zinb. done. not ideal
 ```
 
 
