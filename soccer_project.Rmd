@@ -41,7 +41,7 @@ names(match_data)[13] = "away_team_name"
 match_data <- match_data %>% left_join(league_id, by = c("league_id" = "id"))
 names(match_data)[14] = "league_name"
 
-table(match_data$season)
+head(match_data)
 
 
 
@@ -221,12 +221,11 @@ chisq.test(x = c(1027,1202,663,292,105,25,9,1,1,1), p = season_2015_2016_divide_
 
 
 ```{r}
-n_distinct(match_data$home_team_name)
-n_distinct(match_data$away_team_name)
 Belgium_data = subset(match_data, league_name == "Belgium Jupiler League" & season == "2015/2016")
 England_data = subset(match_data, league_name == "England Premier League"& season == "2015/2016")
 France_data = subset(match_data, league_name == "France Ligue 1" & season == "2015/2016")
 Germany_data = subset(match_data, league_name == "Germany 1. Bundesliga" & season == "2015/2016")
+table(Switzerland_data$stage)
 Italy_data = subset(match_data, league_name == "Italy Serie A" & season == "2015/2016")
 Netherland_data = subset(match_data, league_name == "Netherlands Eredivisie" & season == "2015/2016")
 Poland_data = subset(match_data, league_name == "Poland Ekstraklasa" & season == "2015/2016")
@@ -238,13 +237,20 @@ Switzerland_data = subset(match_data, league_name == "Switzerland Super League" 
 
 
 ```{r, warning=FALSE}
+## the higher values for the home team, the higher their offensive strength. the lower values for the away team, the higher their defensive strength.
 a = Belgium_data$home_team_goal
 Belgium_data_fit_poisson = fitdistr(a, densfun = "poisson")
 Belgium_data_fit_poisson$loglik # pick
 Belgium_data_fit_nb = fitdistr(a, densfun = "Negative Binomial")
 Belgium_data_fit_nb$loglik
+#Belgium_data_fit_zip <- fitdist(a, distr = 'zip',start = list(lambda=mean(a),pi=sum(a == 0)/length(a)))
+#Belgium_data_fit_zip$loglik
 Belgium_poisson_model <- glm(home_team_goal ~ home_team_name + away_team_name, family = "poisson", data = Belgium_data)
-summary(Belgium_poisson_model)
+Belgium_nb_model <- glm.nb(home_team_goal ~ home_team_name + away_team_name, data = Belgium_data)
+Belgium_zero_inflated_poisson_model <- zeroinfl(home_team_goal ~ home_team_name + away_team_name, data =Belgium_data)
+
+
+
 
 b = England_data$home_team_goal
 England_data_fit_poisson = fitdistr(b, densfun = "poisson")
@@ -253,8 +259,11 @@ England_data_fit_nb = fitdistr(b, densfun = "Negative Binomial")
 England_data_fit_nb$loglik
 England_data_fit_zip <- fitdist(b, distr = 'zip',start = list(lambda=mean(b),pi=sum(b == 0)/length(b)))
 England_data_fit_zip$loglik # pick
+England_poisson_model <- glm(home_team_goal ~ home_team_name + away_team_name, family = "poisson", data = England_data)
+England_nb_model <- glm.nb(home_team_goal ~ home_team_name + away_team_name, data = England_data)
 England_zero_inflated_poisson_model <- zeroinfl(home_team_goal ~ home_team_name + away_team_name, data = England_data)
-summary(England_zero_inflated_poisson_model)
+
+
 
 
 c = France_data$home_team_goal
@@ -264,8 +273,10 @@ France_data_fit_nb = fitdistr(c, densfun = "Negative Binomial")
 France_data_fit_nb$loglik # pick
 France_data_fit_zip <- fitdist(c, distr = 'zip',start = list(lambda=mean(c),pi=sum(c == 0)/length(c)))
 France_data_fit_zip$loglik
-France_negative_binomial_model <- glm.nb(home_team_goal ~ home_team_name + away_team_name, data = France_data)
-summary(France_negative_binomial_model)
+France_poisson_model <- glm(home_team_goal ~ home_team_name + away_team_name, family = "poisson", data = France_data)
+France_nb_model <- glm.nb(home_team_goal ~ home_team_name + away_team_name, data = France_data)
+France_zero_inflated_poisson_model <- zeroinfl(home_team_goal ~ home_team_name + away_team_name, data = France_data)
+
 
 
 d = Germany_data$home_team_goal
@@ -275,8 +286,11 @@ Germany_data_fit_nb = fitdistr(d, densfun = "Negative Binomial")
 Germany_data_fit_nb$loglik # pick
 Germany_data_fit_zip <- fitdist(d, distr = 'zip',start = list(lambda=mean(d),pi=sum(d == 0)/length(d)))
 Germany_data_fit_zip$loglik
-Germany_negative_binomial_model <- glm.nb(home_team_goal ~ home_team_name + away_team_name, data = Germany_data)
-summary(Germany_negative_binomial_model)
+Germany_poisson_model <- glm(home_team_goal ~ home_team_name + away_team_name, family = "poisson", data = Germany_data)
+Germany_nb_model <- glm.nb(home_team_goal ~ home_team_name + away_team_name, data = Germany_data)
+Germany_zero_inflated_poisson_model <- zeroinfl(home_team_goal ~ home_team_name + away_team_name, data = Germany_data)
+
+
 
 
 e = Italy_data$home_team_goal
@@ -286,8 +300,10 @@ Italy_data_fit_nb = fitdistr(e, densfun = "Negative Binomial")
 Italy_data_fit_nb$loglik
 Italy_data_fit_zip <- fitdist(e, distr = 'zip',start = list(lambda=mean(e),pi=sum(e == 0)/length(e)))
 Italy_data_fit_zip$loglik # pick
+Italy_poisson_model <- glm(home_team_goal ~ home_team_name + away_team_name, family = "poisson", data = Italy_data)
+Italy_nb_model <- glm.nb(home_team_goal ~ home_team_name + away_team_name, data = Italy_data)
 Italy_zero_inflated_poisson_model <- zeroinfl(home_team_goal ~ home_team_name + away_team_name, data = Italy_data)
-summary(Italy_zero_inflated_poisson_model)
+
 
 
 
@@ -299,7 +315,10 @@ Netherland_data_fit_nb = fitdistr(f, densfun = "Negative Binomial")
 Netherland_data_fit_nb$loglik
 Netherland_data_fit_zip <- fitdist(f, distr = 'zip',start = list(lambda=mean(f),pi=sum(f == 0)/length(f)))
 Netherland_data_fit_zip$loglik # pick
+Netherland_poisson_model <- glm(home_team_goal ~ home_team_name + away_team_name, family = "poisson", data = Netherland_data)
+Netherland_nb_model <- glm.nb(home_team_goal ~ home_team_name + away_team_name, data = Netherland_data)
 Netherland_zero_inflated_poisson_model <- zeroinfl(home_team_goal ~ home_team_name + away_team_name, data = Netherland_data)
+
 
 
 
@@ -310,7 +329,10 @@ Poland_data_fit_nb = fitdistr(g, densfun = "Negative Binomial")
 Poland_data_fit_nb$loglik # pick
 Poland_data_fit_zip <- fitdist(g, distr = 'zip',start = list(lambda=mean(g),pi=sum(g == 0)/length(g)))
 Poland_data_fit_zip$loglik
-Poland_negative_binomial_model <- glm.nb(home_team_goal ~ home_team_name + away_team_name, data = Poland_data)
+Poland_poisson_model <- glm(home_team_goal ~ home_team_name + away_team_name, family = "poisson", data = Poland_data)
+Poland_nb_model <- glm.nb(home_team_goal ~ home_team_name + away_team_name, data = Poland_data)
+Poland_zero_inflated_poisson_model <- zeroinfl(home_team_goal ~ home_team_name + away_team_name, data = Poland_data)
+
 
 
 h = Portugal_data$home_team_goal
@@ -320,7 +342,10 @@ Portugal_data_fit_nb = fitdistr(h, densfun = "Negative Binomial")
 Portugal_data_fit_nb$loglik # pick
 Portugal_data_fit_zip <- fitdist(h, distr = 'zip',start = list(lambda=mean(h),pi=sum(h == 0)/length(h)))
 Portugal_data_fit_zip$loglik
-Portugal_negative_binomial_model <- glm.nb(home_team_goal ~ home_team_name + away_team_name, data = Portugal_data)
+Portugal_poisson_model <- glm(home_team_goal ~ home_team_name + away_team_name, family = "poisson", data = Portugal_data)
+Portugal_nb_model <- glm.nb(home_team_goal ~ home_team_name + away_team_name, data = Portugal_data)
+Poland_zero_inflated_poisson_model <- zeroinfl(home_team_goal ~ home_team_name + away_team_name, data = Portugal_data)
+
 
 
 i = Scotland_data$home_team_goal
@@ -330,7 +355,9 @@ Scotland_data_fit_nb = fitdistr(i, densfun = "Negative Binomial")
 Scotland_data_fit_nb$loglik # pick
 Scotland_data_fit_zip <- fitdist(i, distr = 'zip',start = list(lambda=mean(i),pi=sum(i == 0)/length(i)))
 Scotland_data_fit_zip$loglik
-Scotland_negative_binomial_model <- glm.nb(home_team_goal ~ home_team_name + away_team_name, data = Scotland_data)
+Scotland_poisson_model <- glm(home_team_goal ~ home_team_name + away_team_name, family = "poisson", data = Scotland_data)
+Scotland_nb_model <- glm.nb(home_team_goal ~ home_team_name + away_team_name, data = Scotland_data)
+Scotland_zero_inflated_poisson_model <- zeroinfl(home_team_goal ~ home_team_name + away_team_name, data = Scotland_data)
 
 
 
@@ -341,23 +368,267 @@ Spain_data_fit_nb = fitdistr(j, densfun = "Negative Binomial")
 Spain_data_fit_nb$loglik # pick
 Spain_data_fit_zip <- fitdist(j, distr = 'zip',start = list(lambda=mean(j),pi=sum(j == 0)/length(j)))
 Spain_data_fit_zip$loglik
-Spain_negative_binomial_model <- glm.nb(home_team_goal ~ home_team_name + away_team_name, data = Spain_data)
+Spain_poisson_model <- glm(home_team_goal ~ home_team_name + away_team_name, family = "poisson", data = Spain_data)
+Spain_nb_model <- glm.nb(home_team_goal ~ home_team_name + away_team_name, data = Spain_data)
+Spain_zero_inflated_poisson_model <- zeroinfl(home_team_goal ~ home_team_name + away_team_name, data = Spain_data)
+
+
 
 
 k = Switzerland_data$home_team_goal
 Switzerland_data_fit_poisson = fitdistr(k, densfun = "poisson")
+table(Switzerland_data$stage)
 Switzerland_data_fit_poisson$loglik
 Switzerland_data_fit_nb = fitdistr(k, densfun = "Negative Binomial")
 Switzerland_data_fit_nb$loglik
 Switzerland_data_fit_zip <- fitdist(k, distr = 'zip',start = list(lambda=mean(k),pi=sum(k == 0)/length(k)))
 Switzerland_data_fit_zip$loglik # pick
-Switzerland_zero_inflated_poisson_model <- zeroinfl(home_team_goal ~ home_team_name + away_team_name, data = Switzerland_data)
-
-
+Switzerland_zero_inflated_poisson_model <- zeroinfl(home_team_goal ~ home_team_name + away_team_name, 
+                                                    data = subset(Switzerland_data, stage %in% 1:10))
 
 
 ## generate simulated zip data, and then fit zinb. done. not ideal
 ```
+
+
+
+
+```{r}
+## coefficients for poisson and negative binomial are exteremely close to each other
+all_models_England <- dplyr::bind_rows(
+  data.frame(coef = England_zero_inflated_poisson_model$coefficients$count, teams = names(England_zero_inflated_poisson_model$coefficients$count), model = "zip"),
+  data.frame(coef = England_poisson_model$coefficients, teams = names(England_poisson_model$coefficients), model = "poisson"),
+  data.frame(coef = England_nb_model$coefficients, teams = names(England_nb_model$coefficients), model = "negbin"))
+
+ggplot(all_models_England, aes(x = teams, y = coef, color = model))+geom_point()+coord_flip()
+```
+
+
+
+
+
+
+```{r, warning=FALSE}
+Belgium_mse_poisson = rep(NA, 30)
+for (i in 4:29) {
+  Belgium_poisson_model <- glm(home_team_goal ~ home_team_name + away_team_name, family = "poisson", 
+                             data = subset(Belgium_data, stage %in% c(1:i)))
+  Belgium_poisson_model_prediction <- predict(Belgium_poisson_model, subset(Belgium_data, stage == i+1))
+  Belgium_mse_poisson[i] = mean((Belgium_poisson_model_prediction - subset(Belgium_data, stage == i+1)$home_team_goal)^2)
+}
+Belgium_mse_poisson # better
+
+
+Belgium_mse_nb = rep(NA, 30)
+for (i in 4:29) {
+  Belgium_nb_model <- glm.nb(home_team_goal ~ home_team_name + away_team_name,
+                             data = subset(Belgium_data, stage %in% c(1:i)))
+  Belgium_nb_model_prediction <- predict(Belgium_nb_model, subset(Belgium_data, stage == i+1))
+  Belgium_mse_nb[i] = mean((Belgium_nb_model_prediction - subset(Belgium_data, stage == i+1)$home_team_goal)^2)
+}
+Belgium_mse_nb
+
+sum(Belgium_mse_poisson > Belgium_mse_nb, na.rm =TRUE)
+
+
+
+
+England_mse_nb = rep(NA,38)
+for (i in 4:37) {
+  England_nb_model <- glm.nb(home_team_goal ~ home_team_name + away_team_name, 
+                             data = subset(England_data, stage %in% c(1:i)))
+  England_nb_model_prediction <- predict(England_nb_model, subset(England_data, stage == i+1))
+  England_mse_nb[i] = mean((England_nb_model_prediction - subset(England_data, stage == i+1)$home_team_goal)^2)
+}
+England_mse_nb
+
+
+England_mse_poisson = rep(NA,38)
+for (i in 4:37) {
+  England_poisson_model <- glm(home_team_goal ~ home_team_name + away_team_name, family = "poisson",
+                             data = subset(England_data, stage %in% c(1:i)))
+  England_poisson_model_prediction <- predict(England_poisson_model, subset(England_data, stage == i+1))
+  England_mse_poisson[i] = mean((England_poisson_model_prediction - subset(England_data, stage == i+1)$home_team_goal)^2)
+}
+England_mse_poisson
+
+sum(England_mse_nb < England_mse_poisson, na.rm = TRUE)
+
+```
+
+
+```{r ,warning=FALSE}
+France_mse_nb = rep(NA,38)
+for (i in 4:37) {
+  France_nb_model <- glm.nb(home_team_goal ~ home_team_name + away_team_name, 
+                             data = subset(France_data, stage %in% c(1:i)))
+  France_nb_model_prediction <- predict(France_nb_model, subset(France_data, stage == i+1))
+  France_mse_nb[i] = mean((France_nb_model_prediction - subset(France_data, stage == i+1)$home_team_goal)^2)
+}
+
+
+France_mse_poisson = rep(NA,38)
+for (i in 4:37) {
+  France_poisson_model <- glm(home_team_goal ~ home_team_name + away_team_name, family = "poisson",
+                             data = subset(France_data, stage %in% c(1:i)))
+  France_poisson_model_prediction <- predict(France_poisson_model, subset(France_data, stage == i+1))
+  France_mse_poisson[i] = mean((France_poisson_model_prediction - subset(France_data, stage == i+1)$home_team_goal)^2)
+}
+
+```
+
+```{r,warning=FALSE}
+Germany_mse_nb = rep(NA,34)
+for (i in 4:33) {
+  Germany_nb_model <- glm.nb(home_team_goal ~ home_team_name + away_team_name, 
+                             data = subset(Germany_data, stage %in% c(1:i)))
+  Germany_nb_model_prediction <- predict(Germany_nb_model, subset(Germany_data, stage == i+1))
+  Germany_mse_nb[i] = mean((Germany_nb_model_prediction - subset(Germany_data, stage == i+1)$home_team_goal)^2)
+}
+
+
+Germany_mse_poisson = rep(NA,34)
+for (i in 4:33) {
+  Germany_poisson_model <- glm(home_team_goal ~ home_team_name + away_team_name, family = "poisson",
+                             data = subset(Germany_data, stage %in% c(1:i)))
+  Germany_poisson_model_prediction <- predict(Germany_poisson_model, subset(Germany_data, stage == i+1))
+  Germany_mse_poisson[i] = mean((Germany_poisson_model_prediction - subset(Germany_data, stage == i+1)$home_team_goal)^2)
+}
+
+
+
+Italy_mse_nb = rep(NA,38)
+for (i in 4:37) {
+  Italy_nb_model <- glm.nb(home_team_goal ~ home_team_name + away_team_name, 
+                             data = subset(Italy_data, stage %in% c(1:i)))
+  Italy_nb_model_prediction <- predict(Italy_nb_model, subset(Italy_data, stage == i+1))
+  Italy_mse_nb[i] = mean((Italy_nb_model_prediction - subset(Italy_data, stage == i+1)$home_team_goal)^2)
+}
+
+
+Italy_mse_poisson = rep(NA,38)
+for (i in 4:37) {
+  Italy_poisson_model <- glm(home_team_goal ~ home_team_name + away_team_name, family = "poisson",
+                             data = subset(Italy_data, stage %in% c(1:i)))
+  Italy_poisson_model_prediction <- predict(Italy_poisson_model, subset(Italy_data, stage == i+1))
+  Italy_mse_poisson[i] = mean((Italy_poisson_model_prediction - subset(Italy_data, stage == i+1)$home_team_goal)^2)
+}
+
+
+Netherland_mse_nb = rep(NA,34)
+for (i in 4:33) {
+  Netherland_nb_model <- glm.nb(home_team_goal ~ home_team_name + away_team_name, 
+                             data = subset(Netherland_data, stage %in% c(1:i)))
+  Netherland_nb_model_prediction <- predict(Netherland_nb_model, subset(Netherland_data, stage == i+1))
+  Netherland_mse_nb[i] = mean((Netherland_nb_model_prediction - subset(Netherland_data, stage == i+1)$home_team_goal)^2)
+}
+
+
+Netherland_mse_poisson = rep(NA,34)
+for (i in 4:33) {
+  Netherland_poisson_model <- glm(home_team_goal ~ home_team_name + away_team_name, family = "poisson",
+                             data = subset(Netherland_data, stage %in% c(1:i)))
+  Netherland_poisson_model_prediction <- predict(Netherland_poisson_model, subset(Netherland_data, stage == i+1))
+  Netherland_mse_poisson[i] = mean((Netherland_poisson_model_prediction - subset(Netherland_data, stage == i+1)$home_team_goal)^2)
+}
+
+
+
+Poland_mse_nb = rep(NA,30)
+for (i in 4:29) {
+  Poland_nb_model <- glm.nb(home_team_goal ~ home_team_name + away_team_name, 
+                             data = subset(Poland_data, stage %in% c(1:i)))
+  Poland_nb_model_prediction <- predict(Poland_nb_model, subset(Poland_data, stage == i+1))
+  Poland_mse_nb[i] = mean((Poland_nb_model_prediction - subset(Poland_data, stage == i+1)$home_team_goal)^2)
+}
+
+
+Poland_mse_poisson = rep(NA,30)
+for (i in 4:29) {
+  Poland_poisson_model <- glm(home_team_goal ~ home_team_name + away_team_name, family = "poisson",
+                             data = subset(Poland_data, stage %in% c(1:i)))
+  Poland_poisson_model_prediction <- predict(Poland_poisson_model, subset(Poland_data, stage == i+1))
+  Poland_mse_poisson[i] = mean((Poland_poisson_model_prediction - subset(Poland_data, stage == i+1)$home_team_goal)^2)
+}
+
+
+Portugal_mse_nb = rep(NA,34)
+for (i in 4:33) {
+  Portugal_nb_model <- glm.nb(home_team_goal ~ home_team_name + away_team_name, 
+                             data = subset(Portugal_data, stage %in% c(1:i)))
+  Portugal_nb_model_prediction <- predict(Portugal_nb_model, subset(Portugal_data, stage == i+1))
+  Portugal_mse_nb[i] = mean((Portugal_nb_model_prediction - subset(Portugal_data, stage == i+1)$home_team_goal)^2)
+}
+
+
+Portugal_mse_poisson = rep(NA,34)
+for (i in 4:33) {
+  Portugal_poisson_model <- glm(home_team_goal ~ home_team_name + away_team_name, family = "poisson",
+                             data = subset(Portugal_data, stage %in% c(1:i)))
+  Portugal_poisson_model_prediction <- predict(Portugal_poisson_model, subset(Portugal_data, stage == i+1))
+  Portugal_mse_poisson[i] = mean((Portugal_poisson_model_prediction - subset(Portugal_data, stage == i+1)$home_team_goal)^2)
+}
+
+
+Scotland_mse_nb = rep(NA,38)
+for (i in 4:37) {
+  Scotland_nb_model <- glm.nb(home_team_goal ~ home_team_name + away_team_name, 
+                             data = subset(Scotland_data, stage %in% c(1:i)))
+  Scotland_nb_model_prediction <- predict(Scotland_nb_model, subset(Scotland_data, stage == i+1))
+  Scotland_mse_nb[i] = mean((Scotland_nb_model_prediction - subset(Scotland_data, stage == i+1)$home_team_goal)^2)
+}
+
+
+Scotland_mse_poisson = rep(NA,38)
+for (i in 4:37) {
+  Scotland_poisson_model <- glm(home_team_goal ~ home_team_name + away_team_name, family = "poisson",
+                             data = subset(Scotland_data, stage %in% c(1:i)))
+  Scotland_poisson_model_prediction <- predict(Scotland_poisson_model, subset(Scotland_data, stage == i+1))
+  Scotland_mse_poisson[i] = mean((Scotland_poisson_model_prediction - subset(Scotland_data, stage == i+1)$home_team_goal)^2)
+}
+
+
+Spain_mse_nb = rep(NA,38)
+for (i in 4:37) {
+  Spain_nb_model <- glm.nb(home_team_goal ~ home_team_name + away_team_name, 
+                             data = subset(Spain_data, stage %in% c(1:i)))
+  Spain_nb_model_prediction <- predict(Spain_nb_model, subset(Spain_data, stage == i+1))
+  Spain_mse_nb[i] = mean((Spain_nb_model_prediction - subset(Spain_data, stage == i+1)$home_team_goal)^2)
+}
+
+
+Spain_mse_poisson = rep(NA,38)
+for (i in 4:37) {
+  Spain_poisson_model <- glm(home_team_goal ~ home_team_name + away_team_name, family = "poisson",
+                             data = subset(Spain_data, stage %in% c(1:i)))
+  Spain_poisson_model_prediction <- predict(Spain_poisson_model, subset(Spain_data, stage == i+1))
+  Spain_mse_poisson[i] = mean((Spain_poisson_model_prediction - subset(Spain_data, stage == i+1)$home_team_goal)^2)
+}
+
+
+
+Switzerland_mse_nb = rep(NA,36)
+for (i in 4:35) {
+  Switzerland_nb_model <- glm.nb(home_team_goal ~ home_team_name + away_team_name, 
+                             data = subset(Switzerland_data, stage %in% c(1:i)))
+  Switzerland_nb_model_prediction <- predict(Switzerland_nb_model, subset(Switzerland_data, stage == i+1))
+  Switzerland_mse_nb[i] = mean((Switzerland_nb_model_prediction - subset(Switzerland_data, stage == i+1)$home_team_goal)^2)
+}
+
+
+Switzerland_mse_poisson = rep(NA,36)
+for (i in 4:35) {
+  Switzerland_poisson_model <- glm(home_team_goal ~ home_team_name + away_team_name, family = "poisson",
+                             data = subset(Switzerland_data, stage %in% c(1:i)))
+  Switzerland_poisson_model_prediction <- predict(Switzerland_poisson_model, subset(Switzerland_data, stage == i+1))
+  Switzerland_mse_poisson[i] = mean((Switzerland_poisson_model_prediction - subset(Switzerland_data, stage == i+1)$home_team_goal)^2)
+}
+
+```
+
+
+
+
 
 
 
