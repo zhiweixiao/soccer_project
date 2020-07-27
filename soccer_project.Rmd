@@ -19,6 +19,9 @@ library(qqplotr)
 library(gamlss.dist)
 library(extraDistr)
 library(pscl)
+library(VGAM)
+library(iterativeBMA)
+library(BMA)
 
 temp <- dbConnect(SQLite(), "/Users/zhiweixiao/Downloads/database.sqlite")
 as.data.frame(dbListTables(temp))
@@ -223,9 +226,9 @@ chisq.test(x = c(1027,1202,663,292,105,25,9,1,1,1), p = season_2015_2016_divide_
 ```{r}
 Belgium_data = subset(match_data, league_name == "Belgium Jupiler League" & season == "2015/2016")
 England_data = subset(match_data, league_name == "England Premier League"& season == "2015/2016")
+dim(England_data)
 France_data = subset(match_data, league_name == "France Ligue 1" & season == "2015/2016")
 Germany_data = subset(match_data, league_name == "Germany 1. Bundesliga" & season == "2015/2016")
-table(Switzerland_data$stage)
 Italy_data = subset(match_data, league_name == "Italy Serie A" & season == "2015/2016")
 Netherland_data = subset(match_data, league_name == "Netherlands Eredivisie" & season == "2015/2016")
 Poland_data = subset(match_data, league_name == "Poland Ekstraklasa" & season == "2015/2016")
@@ -234,6 +237,8 @@ Scotland_data = subset(match_data, league_name == "Scotland Premier League" & se
 Spain_data = subset(match_data, league_name == "Spain LIGA BBVA" & season == "2015/2016")
 Switzerland_data = subset(match_data, league_name == "Switzerland Super League" & season == "2015/2016")
 ```
+
+
 
 
 ```{r, warning=FALSE}
@@ -250,8 +255,17 @@ Belgium_nb_model <- glm.nb(home_team_goal ~ home_team_name + away_team_name, dat
 Belgium_zero_inflated_poisson_model <- zeroinfl(home_team_goal ~ home_team_name + away_team_name, data =Belgium_data)
 
 
+Belgium_test_sets = expand.grid(home_team_name = Belgium_data$home_team_name, away_team_name = Belgium_data$away_team_name)
+predict(Belgium_poisson_model, newdata = Belgium_test_sets[1,], type = "response")
+
+```
 
 
+
+
+
+
+```{r, warning=FALSE}
 b = England_data$home_team_goal
 England_data_fit_poisson = fitdistr(b, densfun = "poisson")
 England_data_fit_poisson$loglik
@@ -259,13 +273,53 @@ England_data_fit_nb = fitdistr(b, densfun = "Negative Binomial")
 England_data_fit_nb$loglik
 England_data_fit_zip <- fitdist(b, distr = 'zip',start = list(lambda=mean(b),pi=sum(b == 0)/length(b)))
 England_data_fit_zip$loglik # pick
-England_poisson_model <- glm(home_team_goal ~ home_team_name + away_team_name, family = "poisson", data = England_data)
-England_nb_model <- glm.nb(home_team_goal ~ home_team_name + away_team_name, data = England_data)
-England_zero_inflated_poisson_model <- zeroinfl(home_team_goal ~ home_team_name + away_team_name, data = England_data)
+England_poisson_model_home <- glm(home_team_goal ~ home_team_name + away_team_name, family = "poisson", data = England_data)
+England_poisson_model_away <- glm(away_team_goal ~ home_team_name + away_team_name, family = "poisson", data = England_data)
+England_nb_model_home <- glm.nb(home_team_goal ~ home_team_name + away_team_name, data = England_data)
+England_nb_model_away <- glm.nb(away_team_goal ~ home_team_name + away_team_name, data = England_data)
+England_zip_model_home <- zeroinfl(home_team_goal ~ home_team_name + away_team_name, data = England_data)
+England_zip_model_away <- zeroinfl(away_team_goal ~ home_team_name + away_team_name, data = England_data)
 
 
 
+set.seed(22)
+vector_1 = rep(0, 380)
+vector_2 = rep(0, 380)
+for(i in 1:380){
+England_home_predict_poisson = rpois(n = 500,  lambda = predict(England_poisson_model_home, England_data[i,], type = "response"))
+England_away_predict_poisson = rpois(n = 500,  lambda = predict(England_poisson_model_away, England_data[i,], type = "response"))
+vector_1[i] = sum(England_home_predict_poisson > England_away_predict_poisson) / 500
+vector_2[i] = ifelse(England_data[i,]$home_team_goal > England_data[i,]$away_team_goal, 1, 0)
+}
+sum((vector_1 - vector_2)^2) / 380
 
+
+
+vector_3 = rep(0, 380)
+for(i in 1:380){
+England_home_predict_nb = rnbinom(n = 500,  size = England_nb_model_home$theta,
+                                              mu = predict(England_nb_model_home, England_data[i,], type = "response"))
+England_away_predict_nb = rnbinom(n = 500,  size = England_nb_model_away$theta,
+                                              mu = predict(England_nb_model_away, England_data[i,], type = "response"))
+vector_3[i] = sum(England_home_predict_nb > England_away_predict_nb) / 500
+}
+sum((vector_3 - vector_2)^2) / 380
+
+
+
+vector_4 = rep(0, 380)
+for(i in 1:380){
+England_home_predict_zip = rzipois(n = 500, lambda = predict(England_zip_model_home,England_data[i,],type = "count"), 
+                                               pstr0 = predict(England_zip_model_home,England_data[i,],type = "zero"))
+England_away_predict_zip = rzipois(n = 500, lambda = predict(England_zip_model_away,England_data[i,],type = "count"), 
+                                               pstr0 = predict(England_zip_model_away,England_data[i,],type = "zero"))
+vector_4[i] = sum(England_home_predict_zip > England_away_predict_zip) / 500
+}
+sum((vector_4 - vector_2)^2) / 380
+```
+
+
+```{r, warning = FALSE}
 c = France_data$home_team_goal
 France_data_fit_poisson = fitdistr(c, densfun = "poisson")
 France_data_fit_poisson$loglik
