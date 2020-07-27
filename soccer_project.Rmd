@@ -20,7 +20,7 @@ library(gamlss.dist)
 library(extraDistr)
 library(pscl)
 
-temp <- dbConnect(SQLite(), "/Users/xiaozhiwei/Downloads/database.sqlite")
+temp <- dbConnect(SQLite(), "/Users/zhiweixiao/Downloads/database.sqlite")
 as.data.frame(dbListTables(temp))
 match_data <- dbReadTable(temp,"Match")
 team_id <- dbReadTable(temp,"Team")
