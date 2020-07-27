@@ -410,25 +410,37 @@ ggplot(all_models_England, aes(x = teams, y = coef, color = model))+geom_point()
 
 ```{r, warning=FALSE}
 Belgium_mse_poisson = rep(NA, 30)
-for (i in 4:29) {
+for (i in 5:29) {
   Belgium_poisson_model <- glm(home_team_goal ~ home_team_name + away_team_name, family = "poisson", 
                              data = subset(Belgium_data, stage %in% c(1:i)))
   Belgium_poisson_model_prediction <- predict(Belgium_poisson_model, subset(Belgium_data, stage == i+1))
-  Belgium_mse_poisson[i] = mean((Belgium_poisson_model_prediction - subset(Belgium_data, stage == i+1)$home_team_goal)^2)
+  print(Belgium_poisson_model_prediction)
+  Belgium_mse_poisson[i+1] = mean((Belgium_poisson_model_prediction - subset(Belgium_data, stage == i+1)$home_team_goal)^2)
 }
-Belgium_mse_poisson # better
+Belgium_mse_poisson
 
 
 Belgium_mse_nb = rep(NA, 30)
-for (i in 4:29) {
+for (i in 5:29) {
   Belgium_nb_model <- glm.nb(home_team_goal ~ home_team_name + away_team_name,
                              data = subset(Belgium_data, stage %in% c(1:i)))
   Belgium_nb_model_prediction <- predict(Belgium_nb_model, subset(Belgium_data, stage == i+1))
-  Belgium_mse_nb[i] = mean((Belgium_nb_model_prediction - subset(Belgium_data, stage == i+1)$home_team_goal)^2)
+  Belgium_mse_nb[i+1] = mean((Belgium_nb_model_prediction - subset(Belgium_data, stage == i+1)$home_team_goal)^2)
 }
 Belgium_mse_nb
 
-sum(Belgium_mse_poisson > Belgium_mse_nb, na.rm =TRUE)
+
+Belgium_mse_zero_poisson = rep(NA, 30)
+for (i in 5:29) {
+Belgium_zero_poisson_model <- zeroinfl(home_team_goal ~ home_team_name + away_team_name,
+                             data = subset(Belgium_data, stage %in% c(1:i)))
+Belgium_zero_poisson_model_prediction <- predict(Belgium_zero_poisson_model, subset(Belgium_data, stage == i+1))
+Belgium_mse_zero_poisson[i+1] = mean((Belgium_zero_poisson_model_prediction - subset(Belgium_data, stage == i+1)$home_team_goal)^2)
+print(Belgium_zero_poisson_model_prediction)
+}
+Belgium_mse_zero_poisson
+
+
 
 
 
@@ -440,7 +452,7 @@ for (i in 4:37) {
   England_nb_model_prediction <- predict(England_nb_model, subset(England_data, stage == i+1))
   England_mse_nb[i] = mean((England_nb_model_prediction - subset(England_data, stage == i+1)$home_team_goal)^2)
 }
-England_mse_nb
+print(England_mse_nb)
 
 
 England_mse_poisson = rep(NA,38)
@@ -450,7 +462,13 @@ for (i in 4:37) {
   England_poisson_model_prediction <- predict(England_poisson_model, subset(England_data, stage == i+1))
   England_mse_poisson[i] = mean((England_poisson_model_prediction - subset(England_data, stage == i+1)$home_team_goal)^2)
 }
-England_mse_poisson
+print(England_mse_poisson)
+
+
+
+
+
+
 
 sum(England_mse_nb < England_mse_poisson, na.rm = TRUE)
 
