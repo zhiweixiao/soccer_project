@@ -1,0 +1,341 @@
+---
+title: "538_brier_score"
+author: "Zhiwei Xiao"
+date: "12/24/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r, message=FALSE,warning=FALSE}
+library(tidyverse)
+data_538 = read.csv(url("https://projects.fivethirtyeight.com/soccer-api/club/spi_matches.csv"))
+table(data_538$season)
+# data_538_2 = read.csv(url("https://projects.fivethirtyeight.com/soccer-api/club/spi_matches_latest.csv"))
+```
+
+```{r}
+# table(data_538$league)
+# we assume team 1 is home team, team 2 is away team
+
+
+Belgium_data = subset(data_538, league == "Belgian Jupiler League" & season == 2016) %>% 
+  filter(!is.na(score1) & !is.na(score2))
+dim(Belgium_data)
+Belgium_data_old = subset(data_538, league == "Belgian Jupiler League" & season == 2019) %>% 
+  filter(!is.na(score1) & !is.na(score2))
+
+
+nrow(Belgium_data_old)
+sum(Belgium_data_old$score1 > Belgium_data_old$score2)
+sum(Belgium_data_old$score1 < Belgium_data_old$score2)
+sum(Belgium_data_old$score1 == Belgium_data_old$score2)
+vector_Belgium = rep(c(112/232,69/232,51/232), nrow(Belgium_data)) # reference prediction
+vector1 = rep(0, 3*nrow(Belgium_data))
+vector2 = rep(0, 3*nrow(Belgium_data))
+for(i in 1:nrow(Belgium_data)) {
+vector1[3*(i-1)+1] = ifelse(Belgium_data[i,]$score1 > Belgium_data[i,]$score2, 1, 0)
+vector1[3*(i-1)+2] = ifelse(Belgium_data[i,]$score1 < Belgium_data[i,]$score2, 1, 0)
+vector1[3*(i-1)+3] = ifelse(Belgium_data[i,]$score1 == Belgium_data[i,]$score2, 1, 0)
+
+vector2[3*(i-1)+1] = Belgium_data[i,]$prob1
+vector2[3*(i-1)+2] = Belgium_data[i,]$prob2
+vector2[3*(i-1)+3] = Belgium_data[i,]$probtie
+}
+Belgium_reference = sum((vector1 - vector_Belgium)^2) / (3*nrow(Belgium_data))
+Belgium_brier_skill = 1 - (sum((vector1 - vector2)^2) / (3*nrow(Belgium_data))) / Belgium_reference
+
+Belgium_brier_skill
+
+```
+
+```{r}
+England_data = subset(data_538, league == "Barclays Premier League" & season == 2016) %>% 
+  filter(!is.na(score1) & !is.na(score2))
+dim(England_data)
+England_data_old = subset(data_538, league == "Barclays Premier League" & season == 2019) %>% 
+  filter(!is.na(score1) & !is.na(score2))
+
+
+nrow(England_data_old)
+sum(England_data_old$score1 > England_data_old$score2)
+sum(England_data_old$score1 < England_data_old$score2)
+sum(England_data_old$score1 == England_data_old$score2)
+vector_England = rep(c(172/380, 115/380, 93/380), nrow(England_data)) # reference prediction
+vector1 = rep(0, 3*nrow(England_data))
+vector2 = rep(0, 3*nrow(England_data))
+for(i in 1:nrow(England_data)) {
+vector1[3*(i-1)+1] = ifelse(England_data[i,]$score1 > England_data[i,]$score2, 1, 0)
+vector1[3*(i-1)+2] = ifelse(England_data[i,]$score1 < England_data[i,]$score2, 1, 0)
+vector1[3*(i-1)+3] = ifelse(England_data[i,]$score1 == England_data[i,]$score2, 1, 0)
+
+vector2[3*(i-1)+1] = England_data[i,]$prob1
+vector2[3*(i-1)+2] = England_data[i,]$prob2
+vector2[3*(i-1)+3] = England_data[i,]$probtie
+}
+England_reference = sum((vector1 - vector_England)^2) / (3*nrow(England_data))
+England_brier_skill = 1 - (sum((vector1 - vector2)^2) / (3*nrow(England_data))) / England_reference
+
+England_brier_skill
+```
+
+
+```{r}
+France_data = subset(data_538, league == "French Ligue 1" & season == 2016) %>% 
+  filter(!is.na(score1) & !is.na(score2))
+dim(France_data)
+France_data_old = subset(data_538, league == "French Ligue 1" & season == 2019) %>% 
+  filter(!is.na(score1) & !is.na(score2))
+
+
+nrow(France_data_old)
+sum(France_data_old$score1 > France_data_old$score2)
+sum(France_data_old$score1 < France_data_old$score2)
+sum(France_data_old$score1 == France_data_old$score2)
+vector_France = rep(c(181/380,111/380,88/380), nrow(France_data)) # reference prediction
+vector1 = rep(0, 3*nrow(France_data))
+vector2 = rep(0, 3*nrow(France_data))
+for(i in 1:nrow(France_data)) {
+vector1[3*(i-1)+1] = ifelse(France_data[i,]$score1 > France_data[i,]$score2, 1, 0)
+vector1[3*(i-1)+2] = ifelse(France_data[i,]$score1 < France_data[i,]$score2, 1, 0)
+vector1[3*(i-1)+3] = ifelse(France_data[i,]$score1 == France_data[i,]$score2, 1, 0)
+
+vector2[3*(i-1)+1] = France_data[i,]$prob1
+vector2[3*(i-1)+2] = France_data[i,]$prob2
+vector2[3*(i-1)+3] = France_data[i,]$probtie
+}
+France_reference = sum((vector1 - vector_France)^2) / (3*nrow(France_data))
+France_brier_skill = 1 - ((sum((vector1 - vector2)^2) / (3*nrow(France_data))) / France_reference)
+
+France_brier_skill
+```
+
+
+```{r}
+Germany_data = subset(data_538, league == "German Bundesliga" & season == 2020) %>% 
+  filter(!is.na(score1) & !is.na(score2))
+Germany_data_old = subset(data_538, league == "German Bundesliga" & season == 2019) %>% 
+  filter(!is.na(score1) & !is.na(score2))
+
+
+nrow(Germany_data_old)
+sum(Germany_data_old$score1 > Germany_data_old$score2)
+sum(Germany_data_old$score1 < Germany_data_old$score2)
+sum(Germany_data_old$score1 == Germany_data_old$score2)
+
+vector_Germany = rep(c(123/306,115/306,68/306), nrow(Germany_data)) # reference prediction
+vector1 = rep(0, 3*nrow(Germany_data))
+vector2 = rep(0, 3*nrow(Germany_data))
+for(i in 1:nrow(Germany_data)) {
+vector1[3*(i-1)+1] = ifelse(Germany_data[i,]$score1 > Germany_data[i,]$score2, 1, 0)
+vector1[3*(i-1)+2] = ifelse(Germany_data[i,]$score1 < Germany_data[i,]$score2, 1, 0)
+vector1[3*(i-1)+3] = ifelse(Germany_data[i,]$score1 == Germany_data[i,]$score2, 1, 0)
+
+vector2[3*(i-1)+1] = Germany_data[i,]$prob1
+vector2[3*(i-1)+2] = Germany_data[i,]$prob2
+vector2[3*(i-1)+3] = Germany_data[i,]$probtie
+}
+Germany_reference = sum((vector1 - vector_Germany)^2) / (3*nrow(Germany_data))
+Germany_brier_skill = 1 - ((sum((vector1 - vector2)^2) / (3*nrow(Germany_data))) / Germany_reference)
+
+Germany_brier_skill
+```
+
+```{r}
+Italy_data = subset(data_538, league == "Italy Serie A" & season == 2020) %>% 
+  filter(!is.na(score1) & !is.na(score2))
+Italy_data_old = subset(data_538, league == "Italy Serie A" & season == 2019) %>% 
+  filter(!is.na(score1) & !is.na(score2))
+
+
+nrow(Italy_data_old)
+sum(Italy_data_old$score1 > Italy_data_old$score2)
+sum(Italy_data_old$score1 < Italy_data_old$score2)
+sum(Italy_data_old$score1 == Italy_data_old$score2)
+
+vector_Italy = rep(c(158/380, 137/380, 85/380), nrow(Italy_data)) # reference prediction
+vector1 = rep(0, 3*nrow(Italy_data))
+vector2 = rep(0, 3*nrow(Italy_data))
+for(i in 1:nrow(Italy_data)) {
+vector1[3*(i-1)+1] = ifelse(Italy_data[i,]$score1 > Italy_data[i,]$score2, 1, 0)
+vector1[3*(i-1)+2] = ifelse(Italy_data[i,]$score1 < Italy_data[i,]$score2, 1, 0)
+vector1[3*(i-1)+3] = ifelse(Italy_data[i,]$score1 == Italy_data[i,]$score2, 1, 0)
+
+vector2[3*(i-1)+1] = Italy_data[i,]$prob1
+vector2[3*(i-1)+2] = Italy_data[i,]$prob2
+vector2[3*(i-1)+3] = Italy_data[i,]$probtie
+}
+Italy_reference = sum((vector1 - vector_Italy)^2) / (3*nrow(Italy_data))
+Italy_brier_skill = 1 - ((sum((vector1 - vector2)^2) / (3*nrow(Italy_data))) / Italy_reference)
+
+Italy_brier_skill
+```
+
+```{r}
+Netherland_data = subset(data_538, league == "Dutch Eredivisie" & season == 2020) %>% 
+  filter(!is.na(score1) & !is.na(score2))
+Netherland_data_old = subset(data_538, league == "Dutch Eredivisie" & season == 2019) %>% 
+  filter(!is.na(score1) & !is.na(score2))
+
+
+nrow(Netherland_data_old)
+sum(Netherland_data_old$score1 > Netherland_data_old$score2)
+sum(Netherland_data_old$score1 < Netherland_data_old$score2)
+sum(Netherland_data_old$score1 == Netherland_data_old$score2)
+
+vector_Netherland = rep(c(120/232,63/232,49/232), nrow(Netherland_data)) # reference prediction
+vector1 = rep(0, 3*nrow(Netherland_data))
+vector2 = rep(0, 3*nrow(Netherland_data))
+for(i in 1:nrow(Netherland_data)) {
+vector1[3*(i-1)+1] = ifelse(Netherland_data[i,]$score1 > Netherland_data[i,]$score2, 1, 0)
+vector1[3*(i-1)+2] = ifelse(Netherland_data[i,]$score1 < Netherland_data[i,]$score2, 1, 0)
+vector1[3*(i-1)+3] = ifelse(Netherland_data[i,]$score1 == Netherland_data[i,]$score2, 1, 0)
+
+vector2[3*(i-1)+1] = Netherland_data[i,]$prob1
+vector2[3*(i-1)+2] = Netherland_data[i,]$prob2
+vector2[3*(i-1)+3] = Netherland_data[i,]$probtie
+}
+Netherland_reference = sum((vector1 - vector_Netherland)^2) / (3*nrow(Netherland_data))
+Netherland_brier_skill = 1 - ((sum((vector1 - vector2)^2) / (3*nrow(Netherland_data))) / Netherland_reference)
+
+Netherland_brier_skill
+```
+
+```{r}
+# no Poland league data
+```
+
+```{r}
+Portugal_data = subset(data_538, league == "Portuguese Liga" & season == 2020) %>% 
+  filter(!is.na(score1) & !is.na(score2))
+Portugal_data_old = subset(data_538, league == "Portuguese Liga" & season == 2019) %>% 
+  filter(!is.na(score1) & !is.na(score2))
+
+
+nrow(Portugal_data_old)
+sum(Portugal_data_old$score1 > Portugal_data_old$score2)
+sum(Portugal_data_old$score1 < Portugal_data_old$score2)
+sum(Portugal_data_old$score1 == Portugal_data_old$score2)
+
+vector_Portugal = rep(c(126/306, 101/306, 79/306), nrow(Portugal_data)) # reference prediction
+vector1 = rep(0, 3*nrow(Portugal_data))
+vector2 = rep(0, 3*nrow(Portugal_data))
+for(i in 1:nrow(Portugal_data)) {
+vector1[3*(i-1)+1] = ifelse(Portugal_data[i,]$score1 > Portugal_data[i,]$score2, 1, 0)
+vector1[3*(i-1)+2] = ifelse(Portugal_data[i,]$score1 < Portugal_data[i,]$score2, 1, 0)
+vector1[3*(i-1)+3] = ifelse(Portugal_data[i,]$score1 == Portugal_data[i,]$score2, 1, 0)
+
+vector2[3*(i-1)+1] = Portugal_data[i,]$prob1
+vector2[3*(i-1)+2] = Portugal_data[i,]$prob2
+vector2[3*(i-1)+3] = Portugal_data[i,]$probtie
+}
+Portugal_reference = sum((vector1 - vector_Portugal)^2) / (3*nrow(Portugal_data))
+Portugal_brier_skill = 1 - ((sum((vector1 - vector2)^2) / (3*nrow(Portugal_data))) / Portugal_reference)
+Portugal_brier_skill
+```
+
+```{r}
+Scotland_data = subset(data_538, league == "Scottish Premiership" & season == 2020) %>% 
+  filter(!is.na(score1) & !is.na(score2))
+Scotland_data_old = subset(data_538, league == "Scottish Premiership" & season == 2019) %>% 
+  filter(!is.na(score1) & !is.na(score2))
+
+
+nrow(Scotland_data_old)
+sum(Scotland_data_old$score1 > Scotland_data_old$score2)
+sum(Scotland_data_old$score1 < Scotland_data_old$score2)
+sum(Scotland_data_old$score1 == Scotland_data_old$score2)
+
+vector_Scotland = rep(c(79/179, 54/179, 46/179), nrow(Scotland_data)) # reference prediction
+vector1 = rep(0, 3*nrow(Scotland_data))
+vector2 = rep(0, 3*nrow(Scotland_data))
+for(i in 1:nrow(Scotland_data)) {
+vector1[3*(i-1)+1] = ifelse(Scotland_data[i,]$score1 > Scotland_data[i,]$score2, 1, 0)
+vector1[3*(i-1)+2] = ifelse(Scotland_data[i,]$score1 < Scotland_data[i,]$score2, 1, 0)
+vector1[3*(i-1)+3] = ifelse(Scotland_data[i,]$score1 == Scotland_data[i,]$score2, 1, 0)
+
+vector2[3*(i-1)+1] = Scotland_data[i,]$prob1
+vector2[3*(i-1)+2] = Scotland_data[i,]$prob2
+vector2[3*(i-1)+3] = Scotland_data[i,]$probtie
+}
+Scotland_reference = sum((vector1 - vector_Scotland)^2) / (3*nrow(Scotland_data))
+Scotland_brier_skill = 1 - ((sum((vector1 - vector2)^2) / (3*nrow(Scotland_data))) / Scotland_reference)
+Scotland_brier_skill
+```
+
+```{r}
+Spain_data = subset(data_538, league == "Spanish Primera Division" & season == 2020) %>% 
+  filter(!is.na(score1) & !is.na(score2))
+Spain_data_old = subset(data_538, league == "Spanish Primera Division" & season == 2019) %>% 
+  filter(!is.na(score1) & !is.na(score2))
+
+
+nrow(Spain_data_old)
+sum(Spain_data_old$score1 > Spain_data_old$score2)
+sum(Spain_data_old$score1 < Spain_data_old$score2)
+sum(Spain_data_old$score1 == Spain_data_old$score2)
+
+vector_Spain = rep(c(174/380, 101/380, 105/380), nrow(Spain_data)) # reference prediction
+vector1 = rep(0, 3*nrow(Spain_data))
+vector2 = rep(0, 3*nrow(Spain_data))
+for(i in 1:nrow(Spain_data)) {
+vector1[3*(i-1)+1] = ifelse(Spain_data[i,]$score1 > Spain_data[i,]$score2, 1, 0)
+vector1[3*(i-1)+2] = ifelse(Spain_data[i,]$score1 < Spain_data[i,]$score2, 1, 0)
+vector1[3*(i-1)+3] = ifelse(Spain_data[i,]$score1 == Spain_data[i,]$score2, 1, 0)
+
+vector2[3*(i-1)+1] = Spain_data[i,]$prob1
+vector2[3*(i-1)+2] = Spain_data[i,]$prob2
+vector2[3*(i-1)+3] = Spain_data[i,]$probtie
+}
+Spain_reference = sum((vector1 - vector_Spain)^2) / (3*nrow(Spain_data))
+Spain_brier_skill = 1 - ((sum((vector1 - vector2)^2) / (3*nrow(Spain_data))) / Spain_reference)
+Spain_brier_skill
+```
+
+```{r}
+Switzerland_data = subset(data_538, league == "Swiss Raiffeisen Super League" & season == 2020) %>% 
+  filter(!is.na(score1) & !is.na(score2))
+Switzerland_data_old = subset(data_538, league == "Swiss Raiffeisen Super League" & season == 2019) %>% 
+  filter(!is.na(score1) & !is.na(score2))
+
+
+nrow(Switzerland_data_old)
+sum(Switzerland_data_old$score1 > Switzerland_data_old$score2)
+sum(Switzerland_data_old$score1 < Switzerland_data_old$score2)
+sum(Switzerland_data_old$score1 == Switzerland_data_old$score2)
+
+vector_Switzerland = rep(c(80/180, 55/180, 45/180), nrow(Switzerland_data)) # reference prediction
+vector1 = rep(0, 3*nrow(Switzerland_data))
+vector2 = rep(0, 3*nrow(Switzerland_data))
+for(i in 1:nrow(Switzerland_data)) {
+vector1[3*(i-1)+1] = ifelse(Switzerland_data[i,]$score1 > Switzerland_data[i,]$score2, 1, 0)
+vector1[3*(i-1)+2] = ifelse(Switzerland_data[i,]$score1 < Switzerland_data[i,]$score2, 1, 0)
+vector1[3*(i-1)+3] = ifelse(Switzerland_data[i,]$score1 == Switzerland_data[i,]$score2, 1, 0)
+
+vector2[3*(i-1)+1] = Switzerland_data[i,]$prob1
+vector2[3*(i-1)+2] = Switzerland_data[i,]$prob2
+vector2[3*(i-1)+3] = Switzerland_data[i,]$probtie
+}
+Switzerland_reference = sum((vector1 - vector_Switzerland)^2) / (3*nrow(Switzerland_data))
+Switzerland_brier_skill = 1 - ((sum((vector1 - vector2)^2) / (3*nrow(Switzerland_data))) /Switzerland_reference)
+Switzerland_brier_skill
+```
+
+```{r}
+
+
+
+```
+
+
+
+
+
+
+
+
+
+
