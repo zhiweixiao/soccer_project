@@ -1,0 +1,82 @@
+---
+title: "skellam regression"
+author: "Zhiwei Xiao"
+date: "10/6/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r, warning=FALSE, message=FALSE}
+library(DBI)
+library(RSQLite)
+library(tidyverse)
+library(boot)
+library(fitdistrplus)
+library(qqplotr)
+library(gamlss.dist)
+library(gamlss)
+library(extraDistr)
+library(pscl)
+library(VGAM)
+library(skellam)
+
+
+temp <- dbConnect(SQLite(), "/Users/zhiweixiao/Downloads/database.sqlite")
+as.data.frame(dbListTables(temp))
+match_data <- dbReadTable(temp,"Match")
+team_id <- dbReadTable(temp,"Team")
+league_id <- dbReadTable(temp,"League")
+
+team_id <- team_id[,c("team_api_id", "team_long_name")]
+match_data <- match_data[,1:11]
+league_id <- league_id[,c(1,3)]
+
+match_data <- match_data %>% left_join(team_id, by = c("home_team_api_id" = "team_api_id"))
+names(match_data)[12] = "home_team_name"
+match_data <- match_data %>% left_join(team_id, by = c("away_team_api_id" = "team_api_id"))
+names(match_data)[13] = "away_team_name"
+match_data <- match_data %>% left_join(league_id, by = c("league_id" = "id"))
+names(match_data)[14] = "league_name"
+
+
+Belgium_data = subset(match_data, league_name == "Belgium Jupiler League" & season == "2015/2016")
+England_data = subset(match_data, league_name == "England Premier League"& season == "2015/2016")
+France_data = subset(match_data, league_name == "France Ligue 1" & season == "2015/2016")
+Germany_data = subset(match_data, league_name == "Germany 1. Bundesliga" & season == "2015/2016")
+Italy_data = subset(match_data, league_name == "Italy Serie A" & season == "2015/2016")
+Netherland_data = subset(match_data, league_name == "Netherlands Eredivisie" & season == "2015/2016")
+Poland_data = subset(match_data, league_name == "Poland Ekstraklasa" & season == "2015/2016")
+Portugal_data = subset(match_data, league_name == "Portugal Liga ZON Sagres" & season == "2015/2016")
+Scotland_data = subset(match_data, league_name == "Scotland Premier League" & season == "2015/2016")
+Spain_data = subset(match_data, league_name == "Spain LIGA BBVA" & season == "2015/2016")
+Switzerland_data = subset(match_data, league_name == "Switzerland Super League" & season == "2015/2016")
+
+dim(Belgium_data)
+```
+
+```{r}
+
+Belgium_data <- Belgium_data %>% mutate(home_team_indicator = 1)
+head(Belgium_data)
+
+Belgium_data_new = Belgium_data %>% pivot_wider(names_from = home_team_name, values_from = home_team_indicator, values_fill = 0) %>% print
+
+## To do : need to set away team name to -1 in Belgium_data_new
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
