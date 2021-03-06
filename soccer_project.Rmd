@@ -22,7 +22,7 @@ library(extraDistr)
 library(pscl)
 library(VGAM)
 library(skellam)
-
+library(glmnet)
 
 temp <- dbConnect(SQLite(), "/Users/zhiweixiao/Downloads/database.sqlite")
 as.data.frame(dbListTables(temp))
@@ -33,70 +33,13 @@ league_id <- dbReadTable(temp,"League")
 team_id <- team_id[,c("team_api_id", "team_long_name")]
 match_data <- match_data[,1:11]
 league_id <- league_id[,c(1,3)]
-```
 
-
-
-```{r}
 match_data <- match_data %>% left_join(team_id, by = c("home_team_api_id" = "team_api_id"))
 names(match_data)[12] = "home_team_name"
 match_data <- match_data %>% left_join(team_id, by = c("away_team_api_id" = "team_api_id"))
 names(match_data)[13] = "away_team_name"
 match_data <- match_data %>% left_join(league_id, by = c("league_id" = "id"))
 names(match_data)[14] = "league_name"
-```
-
-
-```{r, message=FALSE, warning=FALSE}
-par(mfrow=c(2,2))
-fit.in1 <- fitdist(match_data$home_team_goal, "norm")
-fit.in2 <- fitdist(match_data$home_team_goal, "pois")
-fit.in3 <- fitdist(match_data$home_team_goal, "nbinom")
-
-denscomp(list(fit.in1,fit.in2,fit.in3),legendtext=c("Normal","pois","nbinom"))
-qqcomp(list(fit.in1,fit.in2,fit.in3),legendtext=c("Normal","pois","nbinom"))
-cdfcomp(list(fit.in1,fit.in2,fit.in3),legendtext=c("Normal","pois","nbinom"))
-ppcomp(list(fit.in1,fit.in2,fit.in3),legendtext=c("Normal","pois","nbinom"))
-```
-
-
-```{r,message=FALSE, warning=FALSE}
-par(mfrow=c(2,2))
-fit.in4 <- fitdist(match_data$away_team_goal, "norm")
-fit.in5 <- fitdist(match_data$away_team_goal, "pois")
-fit.in6 <- fitdist(match_data$away_team_goal, "nbinom")
-
-denscomp(list(fit.in4,fit.in5,fit.in6),legendtext=c("Normal","pois","nbinom"))
-qqcomp(list(fit.in4,fit.in5,fit.in6),legendtext=c("Normal","pois","nbinom"))
-cdfcomp(list(fit.in4,fit.in5,fit.in6),legendtext=c("Normal","pois","nbinom"))
-ppcomp(list(fit.in4,fit.in5,fit.in6),legendtext=c("Normal","pois","nbinom"))
-```
-
-
-
-```{r}
-## data is not over-dispersed
-r <- c(mean(match_data$home_team_goal), var(match_data$home_team_goal))
-c(mean=r[1], var=r[2], ratio=r[2]/r[1])
-
-
-fit = glm(home_team_goal ~ home_team_name + away_team_name, family="poisson", data = match_data)
-fit.overdisp = glm(home_team_goal ~ home_team_name + away_team_name,family="quasipoisson",data = match_data)
-summary(fit.overdisp)$dispersion # dispersion coefficient
-pchisq(summary(fit.overdisp)$dispersion * fit$df.residual, fit$df.residual, lower = F)
-#significance for overdispersion, if less than 0.05, over-dispersion is more appropriate
-```
-
-
-```{r,message=FALSE, warning=FALSE}
-## check zero-inflated model
-model1 <- glm(home_team_goal ~ home_team_name + away_team_name, family="poisson", data=match_data)
-
-zobs <- match_data$home_team_goal == 0
-
-zpoi <- exp(-exp(predict(model1)))
-
-c(obs=mean(zobs), poi=mean(zpoi))
 ```
 
 
@@ -248,24 +191,10 @@ Switzerland_data_old = subset(match_data, league_name == "Switzerland Super Leag
 
 ```
 
-```{r}
-# could delete depending on need
-# dim(Scotland_data_old)
-# sum(Scotland_data_old$home_team_goal == Scotland_data_old$away_team_goal)
-# vector_Scotland = rep(c(102/228,82/228,44/228), nrow(Scotland_data_old))
-# vector_ScotlandS = rep(0, 3*nrow(Scotland_data_old))
-# for(i in 1:nrow(Scotland_data_old)) {
-# vector_ScotlandS[3*(i-1)+1] = ifelse(Scotland_data_old[i,]$home_team_goal > Scotland_data_old[i,]$away_team_goal, 1, 0)
-# vector_ScotlandS[3*(i-1)+2] = ifelse(Scotland_data_old[i,]$home_team_goal < Scotland_data_old[i,]$away_team_goal, 1, 0)
-# vector_ScotlandS[3*(i-1)+3] = ifelse(Scotland_data_old[i,]$home_team_goal == Scotland_data_old[i,]$away_team_goal, 1, 0)
-#}
-#Scotland_reference = sum((vector_Scotland - vector_ScotlandS)^2) / (3*nrow(Scotland_data_old))
-#Scotland_reference
-```
-
 
 ```{r}
 #Belgium reference
+table(Belgium_data$stage)
 nrow(Belgium_data_old)
 sum(Belgium_data_old$home_team_goal > Belgium_data_old$away_team_goal)
 sum(Belgium_data_old$home_team_goal < Belgium_data_old$away_team_goal)
@@ -275,20 +204,30 @@ sum(Belgium_data_old$home_team_goal == Belgium_data_old$away_team_goal)
 
 ```{r, warning=FALSE}
 ## the higher values for the home team, the higher their offensive strength. the lower values for the away team, the higher their defensive strength.
+# set.seed(23)
+# a = Belgium_data$home_team_goal
+# length(a)
+# Belgium_data_fit_poisson = fitdistr(a, densfun = "poisson")
+# Belgium_data_fit_poisson$loglik # pick
+# Belgium_data_fit_nb = fitdistr(a, densfun = "Negative Binomial")
+# Belgium_data_fit_nb$loglik
+# a_sampled = sample(a, size = 240, replace = TRUE)
+# England_data_fit_zip <- fitdist(a_sampled, distr = 'zip',start = list(lambda=mean(a_sampled),pi=sum(a_sampled == 0)/length(a_sampled)))
+# England_data_fit_zip$loglik
 
-#a = Belgium_data$home_team_goal
-#Belgium_data_fit_poisson = fitdistr(a, densfun = "poisson")
-#Belgium_data_fit_poisson$loglik # pick
-#Belgium_data_fit_nb = fitdistr(a, densfun = "Negative Binomial")
-#Belgium_data_fit_nb$loglik
+
 
 
 set.seed(23)
-Belgium_poisson_brier_vector = rep(0, 25)
-Belgium_nb_brier_vector = rep(0, 25)
-Belgium_zip_brier_vector = rep(0, 25)
+Belgium_real_vector = rep(0, 3*10*8)
+Belgium_poisson_vector = rep(0, 3*10*8)
+Belgium_nb_vector = rep(0, 3*10*8)
+Belgium_zip_vector = rep(0, 3*10*8)
+Belgium_reference_vector = rep(c(106/240, 74/240, 60/240), 10*8)
 
-for(j in 5:29){
+
+
+for(j in 20:29){
 Belgium_poisson_model_home <- glm(home_team_goal ~ home_team_name + away_team_name, family = "poisson", data = subset(Belgium_data, stage %in% 1:j))
 Belgium_poisson_model_away <- glm(away_team_goal ~ home_team_name + away_team_name, family = "poisson", data = subset(Belgium_data, stage %in% 1:j))
 Belgium_nb_model_home <- glm.nb(home_team_goal ~ home_team_name + away_team_name, data = subset(Belgium_data, stage %in% 1:j))
@@ -296,64 +235,77 @@ Belgium_nb_model_away <- glm.nb(away_team_goal ~ home_team_name + away_team_name
 Belgium_zip_model_home <- zeroinfl(home_team_goal ~ home_team_name + away_team_name, data = subset(Belgium_data, stage %in% 1:j))
 Belgium_zip_model_away <- zeroinfl(away_team_goal ~ home_team_name + away_team_name, data = subset(Belgium_data, stage %in% 1:j))
 
-
-
 Belgium_temp = subset(Belgium_data, stage == j+1)
-vector_1 = rep(0, 3*nrow(Belgium_temp))
-vector_2 = rep(0, 3*nrow(Belgium_temp))
-vector_3 = rep(0, 3*nrow(Belgium_temp))
-vector_4 = rep(0, 3*nrow(Belgium_temp))
-vector_5 = rep(c(106/240, 74/240, 60/240), nrow(Belgium_temp))
+
 
 for(i in 1:nrow(Belgium_temp)) {
 
-vector_2[3*(i-1)+1] = ifelse(Belgium_temp[i,]$home_team_goal > Belgium_temp[i,]$away_team_goal, 1, 0)
-vector_2[3*(i-1)+2] = ifelse(Belgium_temp[i,]$home_team_goal < Belgium_temp[i,]$away_team_goal, 1, 0)
-vector_2[3*(i-1)+3] = ifelse(Belgium_temp[i,]$home_team_goal == Belgium_temp[i,]$away_team_goal, 1, 0) 
+Belgium_real_vector[24*(j-20)+3*(i-1)+1] = 
+  ifelse(Belgium_temp[i,]$home_team_goal > Belgium_temp[i,]$away_team_goal, 1, 0)
+Belgium_real_vector[24*(j-20)+3*(i-1)+2] = 
+  ifelse(Belgium_temp[i,]$home_team_goal < Belgium_temp[i,]$away_team_goal, 1, 0)
+Belgium_real_vector[24*(j-20)+3*(i-1)+3] = 
+  ifelse(Belgium_temp[i,]$home_team_goal == Belgium_temp[i,]$away_team_goal, 1, 0) 
   
 
-Belgium_home_predict_poisson = rpois(n = 500,  lambda = predict(Belgium_poisson_model_home, Belgium_temp[i,], type = "response"))
-Belgium_away_predict_poisson = rpois(n = 500,  lambda = predict(Belgium_poisson_model_away, Belgium_temp[i,], type = "response"))
-vector_1[3*(i-1)+1] = sum(Belgium_home_predict_poisson > Belgium_away_predict_poisson) / 500
-vector_1[3*(i-1)+2] = sum(Belgium_home_predict_poisson < Belgium_away_predict_poisson) / 500
-vector_1[3*(i-1)+3] = sum(Belgium_home_predict_poisson == Belgium_away_predict_poisson) / 500
+Belgium_home_predict_poisson = rpois(n = 1500,  lambda = predict(Belgium_poisson_model_home, Belgium_temp[i,], type = "response"))
+Belgium_away_predict_poisson = rpois(n = 1500,  lambda = predict(Belgium_poisson_model_away, Belgium_temp[i,], type = "response"))
+Belgium_poisson_vector[24*(j-20)+3*(i-1)+1] = 
+  sum(Belgium_home_predict_poisson > Belgium_away_predict_poisson) / 1500
+Belgium_poisson_vector[24*(j-20)+3*(i-1)+2] = 
+  sum(Belgium_home_predict_poisson < Belgium_away_predict_poisson) / 1500
+Belgium_poisson_vector[24*(j-20)+3*(i-1)+3] = 
+  sum(Belgium_home_predict_poisson == Belgium_away_predict_poisson) / 1500
 
 
-Belgium_home_predict_nb = rnbinom(n = 500,  size = Belgium_nb_model_home$theta,
+Belgium_home_predict_nb = rnbinom(n = 1500,  size = Belgium_nb_model_home$theta,
                                               mu = predict(Belgium_nb_model_home, Belgium_temp[i,], type = "response"))
-Belgium_away_predict_nb = rnbinom(n = 500,  size = Belgium_nb_model_away$theta,
+Belgium_away_predict_nb = rnbinom(n = 1500,  size = Belgium_nb_model_away$theta,
                                               mu = predict(Belgium_nb_model_away, Belgium_temp[i,], type = "response"))
-vector_3[3*(i-1)+1] = sum(Belgium_home_predict_nb > Belgium_away_predict_nb) / 500
-vector_3[3*(i-1)+2] = sum(Belgium_home_predict_nb < Belgium_away_predict_nb) / 500
-vector_3[3*(i-1)+3] = sum(Belgium_home_predict_nb == Belgium_away_predict_nb) / 500
+Belgium_nb_vector[24*(j-20)+3*(i-1)+1] = sum(Belgium_home_predict_nb > Belgium_away_predict_nb) / 1500
+Belgium_nb_vector[24*(j-20)+3*(i-1)+2] = sum(Belgium_home_predict_nb < Belgium_away_predict_nb) / 1500
+Belgium_nb_vector[24*(j-20)+3*(i-1)+3] = sum(Belgium_home_predict_nb == Belgium_away_predict_nb) / 1500
 
 
-Belgium_home_predict_zip = rzipois(n = 500, lambda = predict(Belgium_zip_model_home,Belgium_temp[i,],type = "count"), 
-                                               pstr0 = predict(Belgium_zip_model_home,Belgium_temp[i,],type = "zero"))
-Belgium_away_predict_zip = rzipois(n = 500, lambda = predict(Belgium_zip_model_away,Belgium_temp[i,],type = "count"), 
-                                               pstr0 = predict(Belgium_zip_model_away,Belgium_temp[i,],type = "zero"))
-vector_4[3*(i-1)+1] = sum(Belgium_home_predict_zip > Belgium_away_predict_zip) / 500
-vector_4[3*(i-1)+2] = sum(Belgium_home_predict_zip < Belgium_away_predict_zip) / 500
-vector_4[3*(i-1)+3] = sum(Belgium_home_predict_zip == Belgium_away_predict_zip) / 500
+Belgium_home_predict_zip = rzipois(n = 1500, lambda = predict(Belgium_zip_model_home,Belgium_temp[i,],type = "count"), pstr0 = predict(Belgium_zip_model_home,Belgium_temp[i,],type = "zero"))
+Belgium_away_predict_zip = rzipois(n = 1500, lambda = predict(Belgium_zip_model_away,Belgium_temp[i,],type = "count"), pstr0 = predict(Belgium_zip_model_away,Belgium_temp[i,],type = "zero"))
+Belgium_zip_vector[24*(j-20)+3*(i-1)+1] = sum(Belgium_home_predict_zip > Belgium_away_predict_zip) / 1500
+Belgium_zip_vector[24*(j-20)+3*(i-1)+2] = sum(Belgium_home_predict_zip < Belgium_away_predict_zip) / 1500
+Belgium_zip_vector[24*(j-20)+3*(i-1)+3] = sum(Belgium_home_predict_zip == Belgium_away_predict_zip) / 1500
 
 }
-
-Belgium_reference = sum((vector_5 - vector_2)^2) / (3*nrow(Belgium_temp))
-Belgium_poisson_brier_vector[j-4] = 1- (sum((vector_1 - vector_2)^2) / (3*nrow(Belgium_temp)))/Belgium_reference
-Belgium_nb_brier_vector[j-4] = 1- (sum((vector_3 - vector_2)^2) / (3*nrow(Belgium_temp)))/Belgium_reference
-Belgium_zip_brier_vector[j-4] = 1 - (sum((vector_4 - vector_2)^2) / (3*nrow(Belgium_temp)))/Belgium_reference
-
 }
-Belgium_brier_skill = as.data.frame(cbind(Belgium_poisson_brier_vector, Belgium_nb_brier_vector, Belgium_zip_brier_vector)) %>% transmute(Poisson = Belgium_poisson_brier_vector, NB = Belgium_nb_brier_vector, ZIP = Belgium_zip_brier_vector,stage=5:29) %>% pivot_longer(cols = Poisson:ZIP, names_to = "methods", values_to = "brier skill score")
+
+Belgium_poisson_brier_vector = rep(0, 10)
+Belgium_nb_brier_vector = rep(0, 10)
+Belgium_zip_brier_vector = rep(0, 10)
 
 
-ggplot(data = Belgium_brier_skill) + geom_line(aes(x = stage, y = `brier skill score`,color = methods))+ xlab("test_stage") + ylab("Belgium Brier Skill Score")+theme_bw()
+for(k in 1:10) {
+    Belgium_reference_brier = 
+      sum((Belgium_reference_vector[1:(24*k)] - Belgium_real_vector[1:(24*k)])^2) / (24*k)
+    Belgium_poisson_brier_vector[k] = 
+      1 - (sum((Belgium_poisson_vector[1:(24*k)]-Belgium_real_vector[1:(24*k)])^2)/(24*k))/Belgium_reference_brier
+    Belgium_nb_brier_vector[k] = 
+      1 - (sum((Belgium_nb_vector[1:(24*k)]-Belgium_real_vector[1:(24*k)])^2)/(24*k))/Belgium_reference_brier
+    Belgium_zip_brier_vector[k] = 
+      1 - (sum((Belgium_zip_vector[1:(24*k)]-Belgium_real_vector[1:(24*k)])^2)/(24*k))/Belgium_reference_brier
+}
 
-tail(Belgium_brier_skill)
+sum((Belgium_poisson_vector[1:(24*10)]-Belgium_real_vector[1:(24*10)])^2)/(24*10)
+sum((Belgium_nb_vector[1:(24*10)]-Belgium_real_vector[1:(24*10)])^2)/(24*10)
+sum((Belgium_zip_vector[1:(24*10)]-Belgium_real_vector[1:(24*10)])^2)/(24*10)
+
+Belgium_brier_skill = as.data.frame(cbind(Belgium_poisson_brier_vector, Belgium_nb_brier_vector, Belgium_zip_brier_vector)) %>% transmute(Poisson = Belgium_poisson_brier_vector, NB = Belgium_nb_brier_vector, ZIP = Belgium_zip_brier_vector,stage=21:30) %>% pivot_longer(cols = Poisson:ZIP, names_to = "methods", values_to = "brier skill score")
+
+
+ggplot(data = Belgium_brier_skill, aes(x = factor(stage), y = `brier skill score`,color = methods, group = methods)) + geom_point() + geom_line()+ xlab("test stage") + ylab("Belgium Brier Skill Score")+ theme_classic()
 ```
+
 
 ```{r}
 #England reference
+table(England_data$stage)
 dim(England_data_old)
 sum(England_data_old$home_team_goal > England_data_old$away_team_goal)
 sum(England_data_old$home_team_goal < England_data_old$away_team_goal)
@@ -363,22 +315,25 @@ sum(England_data_old$home_team_goal == England_data_old$away_team_goal)
 
 
 ```{r, warning=FALSE}
-#b = England_data$home_team_goal
-#England_data_fit_poisson = fitdistr(b, densfun = "poisson")
-#England_data_fit_poisson$loglik
-#England_data_fit_nb = fitdistr(b, densfun = "Negative Binomial")
-#England_data_fit_nb$loglik
-#England_data_fit_zip <- fitdist(b, distr = 'zip',start = list(lambda=mean(b),pi=sum(b == 0)/length(b)))
-#England_data_fit_zip$loglik # pick
+# b = England_data$home_team_goal
+# England_data_fit_poisson = fitdistr(b, densfun = "poisson")
+# England_data_fit_poisson$loglik
+# England_data_fit_nb = fitdistr(b, densfun = "Negative Binomial")
+# England_data_fit_nb$loglik
+# England_data_fit_zip <- fitdist(b, distr = 'zip',start = list(lambda=mean(b),pi=sum(b == 0)/length(b)))
+# England_data_fit_zip$loglik # pick
 
 
 
 set.seed(23)
-England_poisson_brier_vector = rep(0, 33)
-England_nb_brier_vector = rep(0, 33)
-England_zip_brier_vector = rep(0, 33)
+England_real_vector = rep(0,3*18*10)
+England_poisson_vector = rep(0, 3*18*10)
+England_nb_vector = rep(0, 3*18*10)
+England_zip_vector = rep(0, 3*18*10)
+England_reference_vector = rep(c(172/380, 115/380, 93/380), 18*10)
 
-for(j in 5:37){
+
+for(j in 20:37){
 England_poisson_model_home <- glm(home_team_goal ~ home_team_name + away_team_name, family = "poisson", data = subset(England_data, stage %in% 1:j))
 England_poisson_model_away <- glm(away_team_goal ~ home_team_name + away_team_name, family = "poisson", data = subset(England_data, stage %in% 1:j))
 England_nb_model_home <- glm.nb(home_team_goal ~ home_team_name + away_team_name, data = subset(England_data, stage %in% 1:j))
@@ -387,65 +342,155 @@ England_zip_model_home <- zeroinfl(home_team_goal ~ home_team_name + away_team_n
 England_zip_model_away <- zeroinfl(away_team_goal ~ home_team_name + away_team_name, data = subset(England_data, stage %in% 1:j))
 
 
-
 England_temp = subset(England_data, stage == j+1)
-vector_1 = rep(0, 3*nrow(England_temp))
-vector_2 = rep(0, 3*nrow(England_temp))
-vector_3 = rep(0, 3*nrow(England_temp))
-vector_4 = rep(0, 3*nrow(England_temp))
-vector_5 = rep(c(172/380, 115/380, 93/380), nrow(England_temp))
 
 for(i in 1:nrow(England_temp)) {
 
-vector_2[3*(i-1)+1] = ifelse(England_temp[i,]$home_team_goal > England_temp[i,]$away_team_goal, 1, 0)
-vector_2[3*(i-1)+2] = ifelse(England_temp[i,]$home_team_goal < England_temp[i,]$away_team_goal, 1, 0)
-vector_2[3*(i-1)+3] = ifelse(England_temp[i,]$home_team_goal == England_temp[i,]$away_team_goal, 1, 0) 
+England_real_vector[30*(j-20)+3*(i-1)+1] = ifelse(England_temp[i,]$home_team_goal > England_temp[i,]$away_team_goal, 1, 0)
+England_real_vector[30*(j-20)+3*(i-1)+2] = ifelse(England_temp[i,]$home_team_goal < England_temp[i,]$away_team_goal, 1, 0)
+England_real_vector[30*(j-20)+3*(i-1)+3] = ifelse(England_temp[i,]$home_team_goal == England_temp[i,]$away_team_goal, 1, 0) 
   
 
-England_home_predict_poisson = rpois(n = 500,  lambda = predict(England_poisson_model_home, England_temp[i,], type = "response"))
-England_away_predict_poisson = rpois(n = 500,  lambda = predict(England_poisson_model_away, England_temp[i,], type = "response"))
-vector_1[3*(i-1)+1] = sum(England_home_predict_poisson > England_away_predict_poisson) / 500
-vector_1[3*(i-1)+2] = sum(England_home_predict_poisson < England_away_predict_poisson) / 500
-vector_1[3*(i-1)+3] = sum(England_home_predict_poisson == England_away_predict_poisson) / 500
+England_home_predict_poisson = rpois(n = 1500,  lambda = predict(England_poisson_model_home, England_temp[i,], type = "response"))
+England_away_predict_poisson = rpois(n = 1500,  lambda = predict(England_poisson_model_away, England_temp[i,], type = "response"))
+England_poisson_vector[30*(j-20)+3*(i-1)+1] = sum(England_home_predict_poisson > England_away_predict_poisson) / 1500
+England_poisson_vector[30*(j-20)+3*(i-1)+2] = sum(England_home_predict_poisson < England_away_predict_poisson) / 1500
+England_poisson_vector[30*(j-20)+3*(i-1)+3] = sum(England_home_predict_poisson == England_away_predict_poisson) / 1500
 
 
-England_home_predict_nb = rnbinom(n = 500,  size = England_nb_model_home$theta,
+England_home_predict_nb = rnbinom(n = 1500,  size = England_nb_model_home$theta,
                                               mu = predict(England_nb_model_home, England_temp[i,], type = "response"))
-England_away_predict_nb = rnbinom(n = 500,  size = England_nb_model_away$theta,
+England_away_predict_nb = rnbinom(n = 1500,  size = England_nb_model_away$theta,
                                               mu = predict(England_nb_model_away, England_temp[i,], type = "response"))
-vector_3[3*(i-1)+1] = sum(England_home_predict_nb > England_away_predict_nb) / 500
-vector_3[3*(i-1)+2] = sum(England_home_predict_nb < England_away_predict_nb) / 500
-vector_3[3*(i-1)+3] = sum(England_home_predict_nb == England_away_predict_nb) / 500
+England_nb_vector[30*(j-20)+3*(i-1)+1] = sum(England_home_predict_nb > England_away_predict_nb) / 1500
+England_nb_vector[30*(j-20)+3*(i-1)+2] = sum(England_home_predict_nb < England_away_predict_nb) / 1500
+England_nb_vector[30*(j-20)+3*(i-1)+3] = sum(England_home_predict_nb == England_away_predict_nb) / 1500
 
 
-England_home_predict_zip = rzipois(n = 500, lambda = predict(England_zip_model_home,England_temp[i,],type = "count"), 
+England_home_predict_zip = rzipois(n = 1500, lambda = predict(England_zip_model_home,England_temp[i,],type = "count"), 
                                                pstr0 = predict(England_zip_model_home,England_temp[i,],type = "zero"))
-England_away_predict_zip = rzipois(n = 500, lambda = predict(England_zip_model_away,England_temp[i,],type = "count"), 
+England_away_predict_zip = rzipois(n = 1500, lambda = predict(England_zip_model_away,England_temp[i,],type = "count"), 
                                                pstr0 = predict(England_zip_model_away,England_temp[i,],type = "zero"))
-vector_4[3*(i-1)+1] = sum(England_home_predict_zip > England_away_predict_zip) / 500
-vector_4[3*(i-1)+2] = sum(England_home_predict_zip < England_away_predict_zip) / 500
-vector_4[3*(i-1)+3] = sum(England_home_predict_zip == England_away_predict_zip) / 500
+England_zip_vector[30*(j-20)+3*(i-1)+1] = sum(England_home_predict_zip > England_away_predict_zip) / 1500
+England_zip_vector[30*(j-20)+3*(i-1)+2] = sum(England_home_predict_zip < England_away_predict_zip) / 1500
+England_zip_vector[30*(j-20)+3*(i-1)+3] = sum(England_home_predict_zip == England_away_predict_zip) / 1500
 
 }
-
-England_reference = sum((vector_5 - vector_2)^2) / (3*nrow(England_temp))
-England_poisson_brier_vector[j-4] = 1- (sum((vector_1 - vector_2)^2) / (3*nrow(England_temp)))/England_reference
-England_nb_brier_vector[j-4] = 1- (sum((vector_3 - vector_2)^2) / (3*nrow(England_temp)))/England_reference
-England_zip_brier_vector[j-4] = 1 - sum((vector_4 - vector_2)^2) / (3*nrow(England_temp))/England_reference
-
 }
-England_brier_skill = as.data.frame(cbind(England_poisson_brier_vector, England_nb_brier_vector, England_zip_brier_vector)) %>% transmute(Poisson = England_poisson_brier_vector, NB = England_nb_brier_vector, ZIP = England_zip_brier_vector,stage=5:37) %>% pivot_longer(cols = Poisson:ZIP, names_to = "methods", values_to = "brier skill score")
+
+England_poisson_brier_vector = rep(0, 18)
+England_nb_brier_vector = rep(0, 18)
+England_zip_brier_vector = rep(0, 18)
+
+for(k in 1:18) {
+    England_reference_brier = 
+      sum((England_reference_vector[1:(30*k)] - England_real_vector[1:(30*k)])^2) / (30*k)
+    England_poisson_brier_vector[k] = 
+      1 - (sum((England_poisson_vector[1:(30*k)]-England_real_vector[1:(30*k)])^2)/(30*k))/England_reference_brier
+    England_nb_brier_vector[k] = 
+      1 - (sum((England_nb_vector[1:(30*k)]-England_real_vector[1:(30*k)])^2)/(30*k))/England_reference_brier
+    England_zip_brier_vector[k] = 
+      1 - (sum((England_zip_vector[1:(30*k)]-England_real_vector[1:(30*k)])^2)/(30*k))/England_reference_brier
+}
+
+sum((England_poisson_vector[1:(30*10)]-England_real_vector[1:(30*10)])^2)/(30*10)
+sum((England_nb_vector[1:(30*10)]-England_real_vector[1:(30*10)])^2)/(30*10)
+sum((England_zip_vector[1:(30*10)]-England_real_vector[1:(30*10)])^2)/(30*10)
+
+
+England_brier_skill = as.data.frame(cbind(England_poisson_brier_vector, England_nb_brier_vector, England_zip_brier_vector)) %>% transmute(Poisson = England_poisson_brier_vector, NB = England_nb_brier_vector, ZIP = England_zip_brier_vector,stage=21:38) %>% pivot_longer(cols = Poisson:ZIP, names_to = "methods", values_to = "brier skill score")
 
 ggplot(data = England_brier_skill) + geom_line(aes(x = stage, y = `brier skill score`,color = methods))+ xlab("test_stage") + ylab("England Brier Skill Score")+theme_bw()
-
 ```
 
 ```{r}
 #France reference
+table(France_data$stage)
 dim(France_data_old)
 sum(France_data_old$home_team_goal > France_data_old$away_team_goal)
 sum(France_data_old$home_team_goal < France_data_old$away_team_goal)
 sum(France_data_old$home_team_goal == France_data_old$away_team_goal)
+```
+
+```{r, message=FALSE, warning=FALSE}
+set.seed(23)
+France_real_vector = rep(0,3*18*10)
+France_poisson_vector = rep(0, 3*18*10)
+France_nb_vector = rep(0, 3*18*10)
+France_zip_vector = rep(0, 3*18*10)
+France_reference_vector = rep(c(181/380,111/380,88/380), 18*10)
+
+
+for(j in 20:37){
+  
+
+France_poisson_model_home <- glm(home_team_goal ~ home_team_name + away_team_name, family = "poisson", data = subset(France_data, stage %in% 1:j))
+France_poisson_model_away <- glm(away_team_goal ~ home_team_name + away_team_name, family = "poisson", data = subset(France_data, stage %in% 1:j))
+France_nb_model_home <- glm.nb(home_team_goal ~ home_team_name + away_team_name, data = subset(France_data, stage %in% 1:j))
+France_nb_model_away <- glm.nb(away_team_goal ~ home_team_name + away_team_name, data = subset(France_data, stage %in% 1:j))
+France_zip_model_home <- zeroinfl(home_team_goal ~ home_team_name + away_team_name, data = subset(France_data, stage %in% 1:j))
+France_zip_model_away <- zeroinfl(away_team_goal ~ home_team_name + away_team_name, data = subset(France_data, stage %in% 1:j))
+
+
+France_temp = subset(France_data, stage == j+1)
+
+
+for(i in 1:nrow(France_temp)) {
+
+France_real_vector[30*(j-20)+3*(i-1)+1] = ifelse(France_temp[i,]$home_team_goal > France_temp[i,]$away_team_goal, 1, 0)
+France_real_vector[30*(j-20)+3*(i-1)+2] = ifelse(France_temp[i,]$home_team_goal < France_temp[i,]$away_team_goal, 1, 0)
+France_real_vector[30*(j-20)+3*(i-1)+3] = ifelse(France_temp[i,]$home_team_goal == France_temp[i,]$away_team_goal, 1, 0) 
+  
+
+France_home_predict_poisson = rpois(n = 1500,  lambda = predict(France_poisson_model_home, France_temp[i,], type = "response"))
+France_away_predict_poisson = rpois(n = 1500,  lambda = predict(France_poisson_model_away, France_temp[i,], type = "response"))
+France_poisson_vector[30*(j-20)+3*(i-1)+1] = sum(France_home_predict_poisson > France_away_predict_poisson) / 1500
+France_poisson_vector[30*(j-20)+3*(i-1)+2] = sum(France_home_predict_poisson < France_away_predict_poisson) / 1500
+France_poisson_vector[30*(j-20)+3*(i-1)+3] = sum(France_home_predict_poisson == France_away_predict_poisson) / 1500
+
+
+France_home_predict_nb = rnbinom(n = 1500,  size = France_nb_model_home$theta,
+                                              mu = predict(France_nb_model_home, France_temp[i,], type = "response"))
+France_away_predict_nb = rnbinom(n = 1500,  size = France_nb_model_away$theta,
+                                              mu = predict(France_nb_model_away, France_temp[i,], type = "response"))
+France_nb_vector[30*(j-20)+3*(i-1)+1] = sum(France_home_predict_nb > France_away_predict_nb) / 1500
+France_nb_vector[30*(j-20)+3*(i-1)+2] = sum(France_home_predict_nb < France_away_predict_nb) / 1500
+France_nb_vector[30*(j-20)+3*(i-1)+3] = sum(France_home_predict_nb == France_away_predict_nb) / 1500
+
+
+France_home_predict_zip = rzipois(n = 1500, lambda = predict(France_zip_model_home,France_temp[i,],type = "count"), 
+                                               pstr0 = predict(France_zip_model_home,France_temp[i,],type = "zero"))
+France_away_predict_zip = rzipois(n = 1500, lambda = predict(France_zip_model_away,France_temp[i,],type = "count"), 
+                                               pstr0 = predict(France_zip_model_away,France_temp[i,],type = "zero"))
+France_zip_vector[30*(j-20)+3*(i-1)+1] = sum(France_home_predict_zip > France_away_predict_zip) / 1500
+France_zip_vector[30*(j-20)+3*(i-1)+2] = sum(France_home_predict_zip < France_away_predict_zip) / 1500
+France_zip_vector[30*(j-20)+3*(i-1)+3] = sum(France_home_predict_zip == France_away_predict_zip) / 1500
+
+}
+}
+
+France_poisson_brier_vector = rep(0, 18)
+France_nb_brier_vector = rep(0, 18)
+France_zip_brier_vector = rep(0, 18)
+
+for(k in 1:18) {
+    France_reference_brier = 
+      sum((France_reference_vector[1:(30*k)] - France_real_vector[1:(30*k)])^2) / (30*k)
+    France_poisson_brier_vector[k] = 
+      1 - (sum((France_poisson_vector[1:(30*k)] - France_real_vector[1:(30*k)])^2)/(30*k))/France_reference_brier
+    France_nb_brier_vector[k] = 
+      1 - (sum((France_nb_vector[1:(30*k)] - France_real_vector[1:(30*k)])^2)/(30*k))/France_reference_brier
+    France_zip_brier_vector[k] = 
+      1 - (sum((France_zip_vector[1:(30*k)] - France_real_vector[1:(30*k)])^2)/(30*k))/France_reference_brier
+}
+
+sum((France_poisson_vector[1:(30*10)] - France_real_vector[1:(30*10)])^2)/(30*10)
+sum((France_nb_vector[1:(30*10)] - France_real_vector[1:(30*10)])^2)/(30*10)
+sum((France_zip_vector[1:(30*10)] - France_real_vector[1:(30*10)])^2)/(30*10)
+
+France_brier_skill = as.data.frame(cbind(France_poisson_brier_vector, France_nb_brier_vector, France_zip_brier_vector)) %>% transmute(Poisson = France_poisson_brier_vector, NB = France_nb_brier_vector, ZIP = France_zip_brier_vector,stage=21:38) %>% pivot_longer(cols = Poisson:ZIP, names_to = "methods", values_to = "brier skill score")
+
+ggplot(data = France_brier_skill) + geom_line(aes(x = stage, y = `brier skill score`,color = methods))+ xlab("test_stage") + ylab("France Brier Skill Score")+theme_bw()
 ```
 
 ```{r, warning = FALSE}
@@ -457,82 +502,82 @@ sum(France_data_old$home_team_goal == France_data_old$away_team_goal)
 # France_data_fit_zip <- fitdist(c, distr = 'zip',start = list(lambda=mean(c),pi=sum(c == 0)/length(c)))
 # France_data_fit_zip$loglik
 
-set.seed(23)
-France_poisson_brier_vector = rep(0, 33)
-France_nb_brier_vector = rep(0, 33)
-France_zip_brier_vector = rep(0, 33)
-
-for(j in 5:37){
-France_poisson_model_home <- glm(home_team_goal ~ home_team_name + away_team_name, family = "poisson", data = subset(France_data, stage %in% 1:j))
-France_poisson_model_away <- glm(away_team_goal ~ home_team_name + away_team_name, family = "poisson", data = subset(France_data, stage %in% 1:j))
-France_nb_model_home <- glm.nb(home_team_goal ~ home_team_name + away_team_name, data = subset(France_data, stage %in% 1:j))
-France_nb_model_away <- glm.nb(away_team_goal ~ home_team_name + away_team_name, data = subset(France_data, stage %in% 1:j))
-France_zip_model_home <- zeroinfl(home_team_goal ~ home_team_name + away_team_name, data = subset(France_data, stage %in% 1:j))
-France_zip_model_away <- zeroinfl(away_team_goal ~ home_team_name + away_team_name, data = subset(France_data, stage %in% 1:j))
-
-
-
-France_temp = subset(France_data, stage == j+1)
-vector_1 = rep(0, 3*nrow(France_temp))
-vector_2 = rep(0, 3*nrow(France_temp))
-vector_3 = rep(0, 3*nrow(France_temp))
-vector_4 = rep(0, 3*nrow(France_temp))
-vector_5 = rep(c(181/380,111/380,88/380), nrow(France_temp))
-
-for(i in 1:nrow(France_temp)) {
-
-vector_2[3*(i-1)+1] = ifelse(France_temp[i,]$home_team_goal > France_temp[i,]$away_team_goal, 1, 0)
-vector_2[3*(i-1)+2] = ifelse(France_temp[i,]$home_team_goal < France_temp[i,]$away_team_goal, 1, 0)
-vector_2[3*(i-1)+3] = ifelse(France_temp[i,]$home_team_goal == France_temp[i,]$away_team_goal, 1, 0) 
-  
-
-France_home_predict_poisson = rpois(n = 500,  lambda = predict(France_poisson_model_home, France_temp[i,], type = "response"))
-France_away_predict_poisson = rpois(n = 500,  lambda = predict(France_poisson_model_away, France_temp[i,], type = "response"))
-vector_1[3*(i-1)+1] = sum(France_home_predict_poisson > France_away_predict_poisson) / 500
-vector_1[3*(i-1)+2] = sum(France_home_predict_poisson < France_away_predict_poisson) / 500
-vector_1[3*(i-1)+3] = sum(France_home_predict_poisson == France_away_predict_poisson) / 500
-
-
-France_home_predict_nb = rnbinom(n = 500,  size = France_nb_model_home$theta,
-                                              mu = predict(France_nb_model_home, France_temp[i,], type = "response"))
-France_away_predict_nb = rnbinom(n = 500,  size = France_nb_model_away$theta,
-                                              mu = predict(France_nb_model_away, France_temp[i,], type = "response"))
-vector_3[3*(i-1)+1] = sum(France_home_predict_nb > France_away_predict_nb) / 500
-vector_3[3*(i-1)+2] = sum(France_home_predict_nb < France_away_predict_nb) / 500
-vector_3[3*(i-1)+3] = sum(France_home_predict_nb == France_away_predict_nb) / 500
-
-
-France_home_predict_zip = rzipois(n = 500, lambda = predict(France_zip_model_home,France_temp[i,],type = "count"), 
-                                               pstr0 = predict(France_zip_model_home,France_temp[i,],type = "zero"))
-France_away_predict_zip = rzipois(n = 500, lambda = predict(France_zip_model_away,France_temp[i,],type = "count"), 
-                                               pstr0 = predict(France_zip_model_away,France_temp[i,],type = "zero"))
-vector_4[3*(i-1)+1] = sum(France_home_predict_zip > France_away_predict_zip) / 500
-vector_4[3*(i-1)+2] = sum(France_home_predict_zip < France_away_predict_zip) / 500
-vector_4[3*(i-1)+3] = sum(France_home_predict_zip == France_away_predict_zip) / 500
-
-}
-
-France_reference = sum((vector_5 - vector_2)^2) / (3*nrow(France_temp))
-France_poisson_brier_vector[j-4] = 1 - (sum((vector_1 - vector_2)^2) / (3*nrow(France_temp)))/France_reference
-France_nb_brier_vector[j-4] = 1- (sum((vector_3 - vector_2)^2) / (3*nrow(France_temp)))/France_reference
-France_zip_brier_vector[j-4] = 1 - (sum((vector_4 - vector_2)^2) / (3*nrow(France_temp)))/France_reference
-
-}
-
-France_brier_skill = as.data.frame(cbind(France_poisson_brier_vector, France_nb_brier_vector, France_zip_brier_vector)) %>% transmute(Poisson = France_poisson_brier_vector, NB = France_nb_brier_vector, ZIP = France_zip_brier_vector,stage=5:37) %>% pivot_longer(cols = Poisson:ZIP, names_to = "methods", values_to = "brier skill score")
-
-ggplot(data = France_brier_skill) + geom_line(aes(x = stage, y = `brier skill score`,color = methods))+ xlab("test_stage") + ylab("France Brier Skill Score")+theme_bw()
+# set.seed(23)
+# France_poisson_brier_vector = rep(0, 28)
+# France_nb_brier_vector = rep(0, 28)
+# France_zip_brier_vector = rep(0, 28)
+# 
+# for(j in 10:37){
+# France_poisson_model_home <- glm(home_team_goal ~ home_team_name + away_team_name, family = "poisson", data = subset(France_data, stage %in% 1:j))
+# France_poisson_model_away <- glm(away_team_goal ~ home_team_name + away_team_name, family = "poisson", data = subset(France_data, stage %in% 1:j))
+# France_nb_model_home <- glm.nb(home_team_goal ~ home_team_name + away_team_name, data = subset(France_data, stage %in% 1:j))
+# France_nb_model_away <- glm.nb(away_team_goal ~ home_team_name + away_team_name, data = subset(France_data, stage %in% 1:j))
+# France_zip_model_home <- zeroinfl(home_team_goal ~ home_team_name + away_team_name, data = subset(France_data, stage %in% 1:j))
+# France_zip_model_away <- zeroinfl(away_team_goal ~ home_team_name + away_team_name, data = subset(France_data, stage %in% 1:j))
+# 
+# 
+# 
+# France_temp = subset(France_data, stage == j+1)
+# vector_1 = rep(0, 3*nrow(France_temp))
+# vector_2 = rep(0, 3*nrow(France_temp))
+# vector_3 = rep(0, 3*nrow(France_temp))
+# vector_4 = rep(0, 3*nrow(France_temp))
+# vector_5 = rep(c(181/380,111/380,88/380), nrow(France_temp))
+# 
+# for(i in 1:nrow(France_temp)) {
+# 
+# vector_2[3*(i-1)+1] = ifelse(France_temp[i,]$home_team_goal > France_temp[i,]$away_team_goal, 1, 0)
+# vector_2[3*(i-1)+2] = ifelse(France_temp[i,]$home_team_goal < France_temp[i,]$away_team_goal, 1, 0)
+# vector_2[3*(i-1)+3] = ifelse(France_temp[i,]$home_team_goal == France_temp[i,]$away_team_goal, 1, 0) 
+#   
+# 
+# France_home_predict_poisson = rpois(n = 1500,  lambda = predict(France_poisson_model_home, France_temp[i,], type = "response"))
+# France_away_predict_poisson = rpois(n = 1500,  lambda = predict(France_poisson_model_away, France_temp[i,], type = "response"))
+# vector_1[3*(i-1)+1] = sum(France_home_predict_poisson > France_away_predict_poisson) / 1500
+# vector_1[3*(i-1)+2] = sum(France_home_predict_poisson < France_away_predict_poisson) / 1500
+# vector_1[3*(i-1)+3] = sum(France_home_predict_poisson == France_away_predict_poisson) / 1500
+# 
+# 
+# France_home_predict_nb = rnbinom(n = 1500,  size = France_nb_model_home$theta,
+#                                               mu = predict(France_nb_model_home, France_temp[i,], type = "response"))
+# France_away_predict_nb = rnbinom(n = 1500,  size = France_nb_model_away$theta,
+#                                               mu = predict(France_nb_model_away, France_temp[i,], type = "response"))
+# vector_3[3*(i-1)+1] = sum(France_home_predict_nb > France_away_predict_nb) / 1500
+# vector_3[3*(i-1)+2] = sum(France_home_predict_nb < France_away_predict_nb) / 1500
+# vector_3[3*(i-1)+3] = sum(France_home_predict_nb == France_away_predict_nb) / 1500
+# 
+# 
+# France_home_predict_zip = rzipois(n = 1500, lambda = predict(France_zip_model_home,France_temp[i,],type = "count"), 
+#                                                pstr0 = predict(France_zip_model_home,France_temp[i,],type = "zero"))
+# France_away_predict_zip = rzipois(n = 1500, lambda = predict(France_zip_model_away,France_temp[i,],type = "count"), 
+#                                                pstr0 = predict(France_zip_model_away,France_temp[i,],type = "zero"))
+# vector_4[3*(i-1)+1] = sum(France_home_predict_zip > France_away_predict_zip) / 1500
+# vector_4[3*(i-1)+2] = sum(France_home_predict_zip < France_away_predict_zip) / 1500
+# vector_4[3*(i-1)+3] = sum(France_home_predict_zip == France_away_predict_zip) / 1500
+# 
+# }
+# 
+# France_reference = sum((vector_5 - vector_2)^2) / (3*nrow(France_temp))
+# France_poisson_brier_vector[j-9] = 1 - (sum((vector_1 - vector_2)^2) / (3*nrow(France_temp)))/France_reference
+# France_nb_brier_vector[j-9] = 1- (sum((vector_3 - vector_2)^2) / (3*nrow(France_temp)))/France_reference
+# France_zip_brier_vector[j-9] = 1 - (sum((vector_4 - vector_2)^2) / (3*nrow(France_temp)))/France_reference
+# 
+# }
+# 
+# France_brier_skill = as.data.frame(cbind(France_poisson_brier_vector, France_nb_brier_vector, France_zip_brier_vector)) %>% transmute(Poisson = France_poisson_brier_vector, NB = France_nb_brier_vector, ZIP = France_zip_brier_vector,stage=10:37) %>% pivot_longer(cols = Poisson:ZIP, names_to = "methods", values_to = "brier skill score")
+# 
+# ggplot(data = France_brier_skill) + geom_line(aes(x = stage, y = `brier skill score`,color = methods))+ xlab("test_stage") + ylab("France Brier Skill Score")+theme_bw()
 ```
 
 
 ```{r}
 #Germany reference
+table(Germany_data$stage)
 dim(Germany_data_old)
 sum(Germany_data_old$home_team_goal > Germany_data_old$away_team_goal)
 sum(Germany_data_old$home_team_goal < Germany_data_old$away_team_goal)
 sum(Germany_data_old$home_team_goal == Germany_data_old$away_team_goal)
 ```
-
 
 
 ```{r, warning=FALSE}
@@ -545,11 +590,14 @@ sum(Germany_data_old$home_team_goal == Germany_data_old$away_team_goal)
 # Germany_data_fit_zip$loglik
 
 set.seed(23)
-Germany_poisson_brier_vector = rep(0, 29)
-Germany_nb_brier_vector = rep(0, 29)
-Germany_zip_brier_vector = rep(0, 29)
+Germany_real_vector = rep(0,3*14*9)
+Germany_poisson_vector = rep(0, 3*14*9)
+Germany_nb_vector = rep(0, 3*14*9)
+Germany_zip_vector = rep(0, 3*14*9)
+Germany_reference_vector = rep(c(145/306,79/306,82/306), 14*9)
 
-for(j in 5:33){
+
+for(j in 20:33){
 Germany_poisson_model_home <- glm(home_team_goal ~ home_team_name + away_team_name, family = "poisson", data = subset(Germany_data, stage %in% 1:j))
 Germany_poisson_model_away <- glm(away_team_goal ~ home_team_name + away_team_name, family = "poisson", data = subset(Germany_data, stage %in% 1:j))
 Germany_nb_model_home <- glm.nb(home_team_goal ~ home_team_name + away_team_name, data = subset(Germany_data, stage %in% 1:j))
@@ -558,83 +606,95 @@ Germany_zip_model_home <- zeroinfl(home_team_goal ~ home_team_name + away_team_n
 Germany_zip_model_away <- zeroinfl(away_team_goal ~ home_team_name + away_team_name, data = subset(Germany_data, stage %in% 1:j))
 
 
-
 Germany_temp = subset(Germany_data, stage == j+1)
-vector_1 = rep(0, 3*nrow(Germany_temp))
-vector_2 = rep(0, 3*nrow(Germany_temp))
-vector_3 = rep(0, 3*nrow(Germany_temp))
-vector_4 = rep(0, 3*nrow(Germany_temp))
-vector_5 = rep(c(145/306,79/306,82/306), nrow(Germany_temp))
+
 
 for(i in 1:nrow(Germany_temp)) {
 
-vector_2[3*(i-1)+1] = ifelse(Germany_temp[i,]$home_team_goal > Germany_temp[i,]$away_team_goal, 1, 0)
-vector_2[3*(i-1)+2] = ifelse(Germany_temp[i,]$home_team_goal < Germany_temp[i,]$away_team_goal, 1, 0)
-vector_2[3*(i-1)+3] = ifelse(Germany_temp[i,]$home_team_goal == Germany_temp[i,]$away_team_goal, 1, 0) 
+Germany_real_vector[27*(j-20)+3*(i-1)+1] = ifelse(Germany_temp[i,]$home_team_goal > Germany_temp[i,]$away_team_goal, 1, 0)
+Germany_real_vector[27*(j-20)+3*(i-1)+2] = ifelse(Germany_temp[i,]$home_team_goal < Germany_temp[i,]$away_team_goal, 1, 0)
+Germany_real_vector[27*(j-20)+3*(i-1)+3] = ifelse(Germany_temp[i,]$home_team_goal == Germany_temp[i,]$away_team_goal, 1, 0) 
   
 
-Germany_home_predict_poisson = rpois(n = 500,  lambda = predict(Germany_poisson_model_home, Germany_temp[i,], type = "response"))
-Germany_away_predict_poisson = rpois(n = 500,  lambda = predict(Germany_poisson_model_away, Germany_temp[i,], type = "response"))
-vector_1[3*(i-1)+1] = sum(Germany_home_predict_poisson > Germany_away_predict_poisson) / 500
-vector_1[3*(i-1)+2] = sum(Germany_home_predict_poisson < Germany_away_predict_poisson) / 500
-vector_1[3*(i-1)+3] = sum(Germany_home_predict_poisson == Germany_away_predict_poisson) / 500
+Germany_home_predict_poisson = rpois(n = 1500,  lambda = predict(Germany_poisson_model_home, Germany_temp[i,], type = "response"))
+Germany_away_predict_poisson = rpois(n = 1500,  lambda = predict(Germany_poisson_model_away, Germany_temp[i,], type = "response"))
+Germany_poisson_vector[27*(j-20)+3*(i-1)+1] = sum(Germany_home_predict_poisson > Germany_away_predict_poisson) / 1500
+Germany_poisson_vector[27*(j-20)+3*(i-1)+2] = sum(Germany_home_predict_poisson < Germany_away_predict_poisson) / 1500
+Germany_poisson_vector[27*(j-20)+3*(i-1)+3] = sum(Germany_home_predict_poisson == Germany_away_predict_poisson) / 1500
 
 
-Germany_home_predict_nb = rnbinom(n = 500,  size = Germany_nb_model_home$theta,
+Germany_home_predict_nb = rnbinom(n = 1500,  size = Germany_nb_model_home$theta,
                                               mu = predict(Germany_nb_model_home, Germany_temp[i,], type = "response"))
-Germany_away_predict_nb = rnbinom(n = 500,  size = Germany_nb_model_away$theta,
+Germany_away_predict_nb = rnbinom(n = 1500,  size = Germany_nb_model_away$theta,
                                               mu = predict(Germany_nb_model_away, Germany_temp[i,], type = "response"))
-vector_3[3*(i-1)+1] = sum(Germany_home_predict_nb > Germany_away_predict_nb) / 500
-vector_3[3*(i-1)+2] = sum(Germany_home_predict_nb < Germany_away_predict_nb) / 500
-vector_3[3*(i-1)+3] = sum(Germany_home_predict_nb == Germany_away_predict_nb) / 500
+Germany_nb_vector[27*(j-20)+3*(i-1)+1] = sum(Germany_home_predict_nb > Germany_away_predict_nb) / 1500
+Germany_nb_vector[27*(j-20)+3*(i-1)+2] = sum(Germany_home_predict_nb < Germany_away_predict_nb) / 1500
+Germany_nb_vector[27*(j-20)+3*(i-1)+3] = sum(Germany_home_predict_nb == Germany_away_predict_nb) / 1500
 
 
-Germany_home_predict_zip = rzipois(n = 500, lambda = predict(Germany_zip_model_home,Germany_temp[i,],type = "count"), 
+Germany_home_predict_zip = rzipois(n = 1500, lambda = predict(Germany_zip_model_home,Germany_temp[i,],type = "count"), 
                                                pstr0 = predict(Germany_zip_model_home,Germany_temp[i,],type = "zero"))
-Germany_away_predict_zip = rzipois(n = 500, lambda = predict(Germany_zip_model_away,Germany_temp[i,],type = "count"), 
+Germany_away_predict_zip = rzipois(n = 1500, lambda = predict(Germany_zip_model_away,Germany_temp[i,],type = "count"), 
                                                pstr0 = predict(Germany_zip_model_away,Germany_temp[i,],type = "zero"))
-vector_4[3*(i-1)+1] = sum(Germany_home_predict_zip > Germany_away_predict_zip) / 500
-vector_4[3*(i-1)+2] = sum(Germany_home_predict_zip < Germany_away_predict_zip) / 500
-vector_4[3*(i-1)+3] = sum(Germany_home_predict_zip == Germany_away_predict_zip) / 500
+Germany_zip_vector[27*(j-20)+3*(i-1)+1] = sum(Germany_home_predict_zip > Germany_away_predict_zip) / 1500
+Germany_zip_vector[27*(j-20)+3*(i-1)+2] = sum(Germany_home_predict_zip < Germany_away_predict_zip) / 1500
+Germany_zip_vector[27*(j-20)+3*(i-1)+3] = sum(Germany_home_predict_zip == Germany_away_predict_zip) / 1500
 
 }
-Germany_reference = sum((vector_5 - vector_2)^2)/(3*nrow(Germany_temp))
-Germany_poisson_brier_vector[j-4] = 1 - (sum((vector_1 - vector_2)^2)/(3*nrow(Germany_temp)))/Germany_reference
-Germany_nb_brier_vector[j-4] = 1- (sum((vector_3 - vector_2)^2) / (3*nrow(Germany_temp)))/Germany_reference
-Germany_zip_brier_vector[j-4] = 1 - (sum((vector_4 - vector_2)^2) / (3*nrow(Germany_temp)))/Germany_reference
+}
+Germany_poisson_brier_vector = rep(0, 14)
+Germany_nb_brier_vector = rep(0, 14)
+Germany_zip_brier_vector = rep(0, 14)
 
+for(k in 1:14) {
+    Germany_reference_brier = 
+      sum((Germany_reference_vector[1:(27*k)] - Germany_real_vector[1:(27*k)])^2) / (27*k)
+    Germany_poisson_brier_vector[k] = 
+      1 - (sum((Germany_poisson_vector[1:(27*k)]-Germany_real_vector[1:(27*k)])^2)/(27*k))/Germany_reference_brier
+    Germany_nb_brier_vector[k] = 
+      1 - (sum((Germany_nb_vector[1:(27*k)]-Germany_real_vector[1:(27*k)])^2)/(27*k))/Germany_reference_brier
+    Germany_zip_brier_vector[k] = 
+      1 - (sum((Germany_zip_vector[1:(27*k)]-Germany_real_vector[1:(27*k)])^2)/(27*k))/Germany_reference_brier
 }
 
-Germany_brier_skill = as.data.frame(cbind(Germany_poisson_brier_vector, Germany_nb_brier_vector, Germany_zip_brier_vector)) %>% transmute(Poisson = Germany_poisson_brier_vector, NB = Germany_nb_brier_vector, ZIP = Germany_zip_brier_vector,stage=5:33) %>% pivot_longer(cols = Poisson:ZIP, names_to = "methods", values_to = "brier skill score")
+sum((Germany_poisson_vector[1:(27*10)]-Germany_real_vector[1:(27*10)])^2)/(27*10)
+sum((Germany_nb_vector[1:(27*10)]-Germany_real_vector[1:(27*10)])^2)/(27*10)
+sum((Germany_zip_vector[1:(27*10)]-Germany_real_vector[1:(27*10)])^2)/(27*10)
+
+
+Germany_brier_skill = as.data.frame(cbind(Germany_poisson_brier_vector, Germany_nb_brier_vector, Germany_zip_brier_vector)) %>% transmute(Poisson = Germany_poisson_brier_vector, NB = Germany_nb_brier_vector, ZIP = Germany_zip_brier_vector,stage=21:34) %>% pivot_longer(cols = Poisson:ZIP, names_to = "methods", values_to = "brier skill score")
 
 ggplot(data = Germany_brier_skill) + geom_line(aes(x = stage, y = `brier skill score`,color = methods))+ xlab("test_stage") + ylab("Germany Brier Skill Score")+theme_bw()
 ```
 
 ```{r}
 #Italy reference
+table(Italy_data$stage)
 dim(Italy_data_old)
 sum(Italy_data_old$home_team_goal > Italy_data_old$away_team_goal)
 sum(Italy_data_old$home_team_goal < Italy_data_old$away_team_goal)
 sum(Italy_data_old$home_team_goal == Italy_data_old$away_team_goal)
 ```
 
+```{r}
+# model compasion, and format. descriptive models, not for prediction. Need regularization (shrink outliers), hyperparameters, like 538 focus on prediction. 
+
+# journal of American statistician associate template
+```
+
 
 
 ```{r, warning=FALSE}
-# e = Italy_data$home_team_goal
-# Italy_data_fit_poisson = fitdistr(e, densfun = "poisson")
-# Italy_data_fit_poisson$loglik
-# Italy_data_fit_nb = fitdistr(e, densfun = "Negative Binomial")
-# Italy_data_fit_nb$loglik
-# Italy_data_fit_zip <- fitdist(e, distr = 'zip',start = list(lambda=mean(e),pi=sum(e == 0)/length(e)))
-# Italy_data_fit_zip$loglik # pick
-
 set.seed(23)
-Italy_poisson_brier_vector = rep(0, 33)
-Italy_nb_brier_vector = rep(0, 33)
-Italy_zip_brier_vector = rep(0, 33)
+Italy_real_vector = rep(0,3*18*10)
+Italy_poisson_vector = rep(0, 3*18*10)
+Italy_nb_vector = rep(0, 3*18*10)
+Italy_zip_vector = rep(0, 3*18*10)
+Italy_reference_vector = rep(c(152/379,107/379,120/379), 18*10)
 
-for(j in 5:37){
+
+
+for(j in 20:37){
 Italy_poisson_model_home <- glm(home_team_goal ~ home_team_name + away_team_name, family = "poisson", data = subset(Italy_data, stage %in% 1:j))
 Italy_poisson_model_away <- glm(away_team_goal ~ home_team_name + away_team_name, family = "poisson", data = subset(Italy_data, stage %in% 1:j))
 Italy_nb_model_home <- glm.nb(home_team_goal ~ home_team_name + away_team_name, data = subset(Italy_data, stage %in% 1:j))
@@ -643,85 +703,166 @@ Italy_zip_model_home <- zeroinfl(home_team_goal ~ home_team_name + away_team_nam
 Italy_zip_model_away <- zeroinfl(away_team_goal ~ home_team_name + away_team_name, data = subset(Italy_data, stage %in% 1:j))
 
 
-
 Italy_temp = subset(Italy_data, stage == j+1)
-vector_1 = rep(0, 3*nrow(Italy_temp))
-vector_2 = rep(0, 3*nrow(Italy_temp))
-vector_3 = rep(0, 3*nrow(Italy_temp))
-vector_4 = rep(0, 3*nrow(Italy_temp))
-vector_5 = rep(c(152/379,107/379,120/379), nrow(Italy_temp))
+
 
 for(i in 1:nrow(Italy_temp)) {
 
-vector_2[3*(i-1)+1] = ifelse(Italy_temp[i,]$home_team_goal > Italy_temp[i,]$away_team_goal, 1, 0)
-vector_2[3*(i-1)+2] = ifelse(Italy_temp[i,]$home_team_goal < Italy_temp[i,]$away_team_goal, 1, 0)
-vector_2[3*(i-1)+3] = ifelse(Italy_temp[i,]$home_team_goal == Italy_temp[i,]$away_team_goal, 1, 0) 
+Italy_real_vector[30*(j-20)+3*(i-1)+1] = ifelse(Italy_temp[i,]$home_team_goal > Italy_temp[i,]$away_team_goal, 1, 0)
+Italy_real_vector[30*(j-20)+3*(i-1)+2] = ifelse(Italy_temp[i,]$home_team_goal < Italy_temp[i,]$away_team_goal, 1, 0)
+Italy_real_vector[30*(j-20)+3*(i-1)+3] = ifelse(Italy_temp[i,]$home_team_goal == Italy_temp[i,]$away_team_goal, 1, 0) 
   
 
-Italy_home_predict_poisson = rpois(n = 500,  lambda = predict(Italy_poisson_model_home, Italy_temp[i,], type = "response"))
-Italy_away_predict_poisson = rpois(n = 500,  lambda = predict(Italy_poisson_model_away, Italy_temp[i,], type = "response"))
-vector_1[3*(i-1)+1] = sum(Italy_home_predict_poisson > Italy_away_predict_poisson) / 500
-vector_1[3*(i-1)+2] = sum(Italy_home_predict_poisson < Italy_away_predict_poisson) / 500
-vector_1[3*(i-1)+3] = sum(Italy_home_predict_poisson == Italy_away_predict_poisson) / 500
+Italy_home_predict_poisson = rpois(n = 1500,  lambda = predict(Italy_poisson_model_home, Italy_temp[i,], type = "response"))
+Italy_away_predict_poisson = rpois(n = 1500,  lambda = predict(Italy_poisson_model_away, Italy_temp[i,], type = "response"))
+Italy_poisson_vector[30*(j-20)+3*(i-1)+1] = sum(Italy_home_predict_poisson > Italy_away_predict_poisson) / 1500
+Italy_poisson_vector[30*(j-20)+3*(i-1)+2] = sum(Italy_home_predict_poisson < Italy_away_predict_poisson) / 1500
+Italy_poisson_vector[30*(j-20)+3*(i-1)+3] = sum(Italy_home_predict_poisson == Italy_away_predict_poisson) / 1500
 
 
-Italy_home_predict_nb = rnbinom(n = 500,  size = Italy_nb_model_home$theta,
+Italy_home_predict_nb = rnbinom(n = 1500,  size = Italy_nb_model_home$theta,
                                               mu = predict(Italy_nb_model_home, Italy_temp[i,], type = "response"))
-Italy_away_predict_nb = rnbinom(n = 500,  size = Italy_nb_model_away$theta,
+Italy_away_predict_nb = rnbinom(n = 1500,  size = Italy_nb_model_away$theta,
                                               mu = predict(Italy_nb_model_away, Italy_temp[i,], type = "response"))
-vector_3[3*(i-1)+1] = sum(Italy_home_predict_nb > Italy_away_predict_nb) / 500
-vector_3[3*(i-1)+2] = sum(Italy_home_predict_nb < Italy_away_predict_nb) / 500
-vector_3[3*(i-1)+3] = sum(Italy_home_predict_nb == Italy_away_predict_nb) / 500
+Italy_nb_vector[30*(j-20)+3*(i-1)+1] = sum(Italy_home_predict_nb > Italy_away_predict_nb) / 1500
+Italy_nb_vector[30*(j-20)+3*(i-1)+2] = sum(Italy_home_predict_nb < Italy_away_predict_nb) / 1500
+Italy_nb_vector[30*(j-20)+3*(i-1)+3] = sum(Italy_home_predict_nb == Italy_away_predict_nb) / 1500
 
 
-Italy_home_predict_zip = rzipois(n = 500, lambda = predict(Italy_zip_model_home,Italy_temp[i,],type = "count"), 
+Italy_home_predict_zip = rzipois(n = 1500, lambda = predict(Italy_zip_model_home,Italy_temp[i,],type = "count"), 
                                                pstr0 = predict(Italy_zip_model_home,Italy_temp[i,],type = "zero"))
-Italy_away_predict_zip = rzipois(n = 500, lambda = predict(Italy_zip_model_away,Italy_temp[i,],type = "count"), 
+Italy_away_predict_zip = rzipois(n = 1500, lambda = predict(Italy_zip_model_away,Italy_temp[i,],type = "count"), 
                                                pstr0 = predict(Italy_zip_model_away,Italy_temp[i,],type = "zero"))
-vector_4[3*(i-1)+1] = sum(Italy_home_predict_zip > Italy_away_predict_zip) / 500
-vector_4[3*(i-1)+2] = sum(Italy_home_predict_zip < Italy_away_predict_zip) / 500
-vector_4[3*(i-1)+3] = sum(Italy_home_predict_zip == Italy_away_predict_zip) / 500
+Italy_zip_vector[30*(j-20)+3*(i-1)+1] = sum(Italy_home_predict_zip > Italy_away_predict_zip) / 1500
+Italy_zip_vector[30*(j-20)+3*(i-1)+2] = sum(Italy_home_predict_zip < Italy_away_predict_zip) / 1500
+Italy_zip_vector[30*(j-20)+3*(i-1)+3] = sum(Italy_home_predict_zip == Italy_away_predict_zip) / 1500
 
 }
 
-Italy_reference = sum((vector_5 - vector_2)^2) / (3*nrow(Italy_temp))
-Italy_poisson_brier_vector[j-4] = 1 - (sum((vector_1 - vector_2)^2) / (3*nrow(Italy_temp)))/Italy_reference
-Italy_nb_brier_vector[j-4] = 1- (sum((vector_3 - vector_2)^2) / (3*nrow(Italy_temp)))/Italy_reference
-Italy_zip_brier_vector[j-4] = 1 - (sum((vector_4 - vector_2)^2) / (3*nrow(Italy_temp)))/Italy_reference
-
 }
 
-Italy_brier_skill = as.data.frame(cbind(Italy_poisson_brier_vector, Italy_nb_brier_vector, Italy_zip_brier_vector)) %>% transmute(Poisson = Italy_poisson_brier_vector, NB = Italy_nb_brier_vector, ZIP = Italy_zip_brier_vector,stage=5:37) %>% pivot_longer(cols = Poisson:ZIP, names_to = "methods", values_to = "brier skill score")
+Italy_poisson_brier_vector = rep(0, 18)
+Italy_nb_brier_vector = rep(0, 18)
+Italy_zip_brier_vector = rep(0, 18)
 
-ggplot(data = Italy_brier_skill) + geom_line(aes(x = stage, y = `brier skill score`,color = methods))+ xlab("test_stage") + ylab("Italy Brier Skill Score")+theme_bw()
+for(k in 1:18) {
+    Italy_reference_brier = 
+      sum((Italy_reference_vector[1:(30*k)] - Italy_real_vector[1:(30*k)])^2) / (30*k)
+    Italy_poisson_brier_vector[k] = 
+      1 - (sum((Italy_poisson_vector[1:(30*k)] - Italy_real_vector[1:(30*k)])^2)/(30*k))/Italy_reference_brier
+    Italy_nb_brier_vector[k] = 
+      1 - (sum((Italy_nb_vector[1:(30*k)] - Italy_real_vector[1:(30*k)])^2)/(30*k))/Italy_reference_brier
+    Italy_zip_brier_vector[k] = 
+      1 - (sum((Italy_zip_vector[1:(30*k)] - Italy_real_vector[1:(30*k)])^2)/(30*k))/Italy_reference_brier
+}
+
+sum((Italy_poisson_vector[1:(30*10)] - Italy_real_vector[1:(30*10)])^2)/(30*10)
+sum((Italy_nb_vector[1:(30*10)] - Italy_real_vector[1:(30*10)])^2)/(30*10)
+sum((Italy_zip_vector[1:(30*10)] - Italy_real_vector[1:(30*10)])^2)/(30*10)
+
+
+Italy_brier_skill = as.data.frame(cbind(Italy_poisson_brier_vector, Italy_nb_brier_vector, Italy_zip_brier_vector)) %>% transmute(Poisson = Italy_poisson_brier_vector, NB = Italy_nb_brier_vector, ZIP = Italy_zip_brier_vector,stage=21:38) %>% pivot_longer(cols = Poisson:ZIP, names_to = "methods", values_to = "brier skill score")
+
+ggplot(data = Italy_brier_skill, aes(x = factor(stage), y = `brier skill score`,color = methods, group = methods)) + geom_point() + geom_line()+ xlab("test stage") + ylab("Italy Brier Skill Score")+ theme_classic()
+```
+
+
+```{r, warning=FALSE}
+e = Italy_data$home_team_goal
+Italy_data_fit_poisson = fitdistr(e, densfun = "poisson")
+Italy_data_fit_poisson$loglik
+Italy_data_fit_nb = fitdistr(e, densfun = "Negative Binomial")
+Italy_data_fit_nb$loglik
+Italy_data_fit_zip <- fitdist(e, distr = 'zip',start = list(lambda=mean(e),pi=sum(e == 0)/length(e)))
+Italy_data_fit_zip$loglik # pick
+
+# set.seed(23)
+# Italy_poisson_brier_vector = rep(0, 28)
+# Italy_nb_brier_vector = rep(0, 28)
+# Italy_zip_brier_vector = rep(0, 28)
+# 
+# for(j in 10:37){
+# Italy_poisson_model_home <- glm(home_team_goal ~ home_team_name + away_team_name, family = "poisson", data = subset(Italy_data, stage %in% 1:j))
+# Italy_poisson_model_away <- glm(away_team_goal ~ home_team_name + away_team_name, family = "poisson", data = subset(Italy_data, stage %in% 1:j))
+# Italy_nb_model_home <- glm.nb(home_team_goal ~ home_team_name + away_team_name, data = subset(Italy_data, stage %in% 1:j))
+# Italy_nb_model_away <- glm.nb(away_team_goal ~ home_team_name + away_team_name, data = subset(Italy_data, stage %in% 1:j))
+# Italy_zip_model_home <- zeroinfl(home_team_goal ~ home_team_name + away_team_name, data = subset(Italy_data, stage %in% 1:j))
+# Italy_zip_model_away <- zeroinfl(away_team_goal ~ home_team_name + away_team_name, data = subset(Italy_data, stage %in% 1:j))
+# 
+# 
+# 
+# Italy_temp = subset(Italy_data, stage == j+1)
+# vector_1 = rep(0, 3*nrow(Italy_temp))
+# vector_2 = rep(0, 3*nrow(Italy_temp))
+# vector_3 = rep(0, 3*nrow(Italy_temp))
+# vector_4 = rep(0, 3*nrow(Italy_temp))
+# vector_5 = rep(c(152/379,107/379,120/379), nrow(Italy_temp))
+# 
+# for(i in 1:nrow(Italy_temp)) {
+# 
+# vector_2[3*(i-1)+1] = ifelse(Italy_temp[i,]$home_team_goal > Italy_temp[i,]$away_team_goal, 1, 0)
+# vector_2[3*(i-1)+2] = ifelse(Italy_temp[i,]$home_team_goal < Italy_temp[i,]$away_team_goal, 1, 0)
+# vector_2[3*(i-1)+3] = ifelse(Italy_temp[i,]$home_team_goal == Italy_temp[i,]$away_team_goal, 1, 0) 
+#   
+# 
+# Italy_home_predict_poisson = rpois(n = 1500,  lambda = predict(Italy_poisson_model_home, Italy_temp[i,], type = "response"))
+# Italy_away_predict_poisson = rpois(n = 1500,  lambda = predict(Italy_poisson_model_away, Italy_temp[i,], type = "response"))
+# vector_1[3*(i-1)+1] = sum(Italy_home_predict_poisson > Italy_away_predict_poisson) / 1500
+# vector_1[3*(i-1)+2] = sum(Italy_home_predict_poisson < Italy_away_predict_poisson) / 1500
+# vector_1[3*(i-1)+3] = sum(Italy_home_predict_poisson == Italy_away_predict_poisson) / 1500
+# 
+# 
+# Italy_home_predict_nb = rnbinom(n = 1500,  size = Italy_nb_model_home$theta,
+#                                               mu = predict(Italy_nb_model_home, Italy_temp[i,], type = "response"))
+# Italy_away_predict_nb = rnbinom(n = 1500,  size = Italy_nb_model_away$theta,
+#                                               mu = predict(Italy_nb_model_away, Italy_temp[i,], type = "response"))
+# vector_3[3*(i-1)+1] = sum(Italy_home_predict_nb > Italy_away_predict_nb) / 1500
+# vector_3[3*(i-1)+2] = sum(Italy_home_predict_nb < Italy_away_predict_nb) / 1500
+# vector_3[3*(i-1)+3] = sum(Italy_home_predict_nb == Italy_away_predict_nb) / 1500
+# 
+# 
+# Italy_home_predict_zip = rzipois(n = 1500, lambda = predict(Italy_zip_model_home,Italy_temp[i,],type = "count"), 
+#                                                pstr0 = predict(Italy_zip_model_home,Italy_temp[i,],type = "zero"))
+# Italy_away_predict_zip = rzipois(n = 1500, lambda = predict(Italy_zip_model_away,Italy_temp[i,],type = "count"), 
+#                                                pstr0 = predict(Italy_zip_model_away,Italy_temp[i,],type = "zero"))
+# vector_4[3*(i-1)+1] = sum(Italy_home_predict_zip > Italy_away_predict_zip) / 1500
+# vector_4[3*(i-1)+2] = sum(Italy_home_predict_zip < Italy_away_predict_zip) / 1500
+# vector_4[3*(i-1)+3] = sum(Italy_home_predict_zip == Italy_away_predict_zip) / 1500
+# 
+# }
+# 
+# Italy_reference = sum((vector_5 - vector_2)^2) / (3*nrow(Italy_temp))
+# Italy_poisson_brier_vector[j-9] = 1 - (sum((vector_1 - vector_2)^2) / (3*nrow(Italy_temp)))/Italy_reference
+# Italy_nb_brier_vector[j-9] = 1- (sum((vector_3 - vector_2)^2) / (3*nrow(Italy_temp)))/Italy_reference
+# Italy_zip_brier_vector[j-9] = 1 - (sum((vector_4 - vector_2)^2) / (3*nrow(Italy_temp)))/Italy_reference
+# 
+# }
+# 
+# Italy_brier_skill = as.data.frame(cbind(Italy_poisson_brier_vector, Italy_nb_brier_vector, Italy_zip_brier_vector)) %>% transmute(Poisson = Italy_poisson_brier_vector, NB = Italy_nb_brier_vector, ZIP = Italy_zip_brier_vector,stage=10:37) %>% pivot_longer(cols = Poisson:ZIP, names_to = "methods", values_to = "brier skill score")
+# 
+# ggplot(data = Italy_brier_skill) + geom_line(aes(x = stage, y = `brier skill score`,color = methods))+ xlab("test_stage") + ylab("Italy Brier Skill Score")+theme_bw()
 
 ```
 
 
 ```{r}
 #Netherland reference
+table(Netherland_data$stage)
 dim(Netherland_data_old)
 sum(Netherland_data_old$home_team_goal > Netherland_data_old$away_team_goal)
 sum(Netherland_data_old$home_team_goal < Netherland_data_old$away_team_goal)
 sum(Netherland_data_old$home_team_goal == Netherland_data_old$away_team_goal)
 ```
 
-
-```{r, warning=FALSE}
-# f = Netherland_data$home_team_goal
-# Netherland_data_fit_poisson = fitdistr(f, densfun = "poisson")
-# Netherland_data_fit_poisson$loglik
-# Netherland_data_fit_nb = fitdistr(f, densfun = "Negative Binomial")
-# Netherland_data_fit_nb$loglik
-# Netherland_data_fit_zip <- fitdist(f, distr = 'zip',start = list(lambda=mean(f),pi=sum(f == 0)/length(f)))
-# Netherland_data_fit_zip$loglik # pick
-
+```{r, message=FALSE, warning=FALSE}
 set.seed(23)
-Netherland_poisson_brier_vector = rep(0, 29)
-Netherland_nb_brier_vector = rep(0, 29)
-Netherland_zip_brier_vector = rep(0, 29)
+Netherland_real_vector = rep(0,3*14*9)
+Netherland_poisson_vector = rep(0, 3*14*9)
+Netherland_nb_vector = rep(0, 3*14*9)
+Netherland_zip_vector = rep(0, 3*14*9)
+Netherland_reference_vector = rep(c(138/306,95/306,73/306), 14*9)
 
-for(j in 5:33){
+for(j in 20:33){
 Netherland_poisson_model_home <- glm(home_team_goal ~ home_team_name + away_team_name, family = "poisson", data = subset(Netherland_data, stage %in% 1:j))
 Netherland_poisson_model_away <- glm(away_team_goal ~ home_team_name + away_team_name, family = "poisson", data = subset(Netherland_data, stage %in% 1:j))
 Netherland_nb_model_home <- glm.nb(home_team_goal ~ home_team_name + away_team_name, data = subset(Netherland_data, stage %in% 1:j))
@@ -729,56 +870,78 @@ Netherland_nb_model_away <- glm.nb(away_team_goal ~ home_team_name + away_team_n
 Netherland_zip_model_home <- zeroinfl(home_team_goal ~ home_team_name + away_team_name, data = subset(Netherland_data, stage %in% 1:j))
 Netherland_zip_model_away <- zeroinfl(away_team_goal ~ home_team_name + away_team_name, data = subset(Netherland_data, stage %in% 1:j))
 
-
 Netherland_temp = subset(Netherland_data, stage == j+1)
-vector_1 = rep(0, 3*nrow(Netherland_temp))
-vector_2 = rep(0, 3*nrow(Netherland_temp))
-vector_3 = rep(0, 3*nrow(Netherland_temp))
-vector_4 = rep(0, 3*nrow(Netherland_temp))
-vector_5 = rep(c(138/306,95/306,73/306), nrow(Netherland_temp))
+
 
 for(i in 1:nrow(Netherland_temp)) {
 
-vector_2[3*(i-1)+1] = ifelse(Netherland_temp[i,]$home_team_goal > Netherland_temp[i,]$away_team_goal, 1, 0)
-vector_2[3*(i-1)+2] = ifelse(Netherland_temp[i,]$home_team_goal < Netherland_temp[i,]$away_team_goal, 1, 0)
-vector_2[3*(i-1)+3] = ifelse(Netherland_temp[i,]$home_team_goal == Netherland_temp[i,]$away_team_goal, 1, 0) 
-  
-
-Netherland_home_predict_poisson = rpois(n = 500,  lambda = predict(Netherland_poisson_model_home, Netherland_temp[i,], type = "response"))
-Netherland_away_predict_poisson = rpois(n = 500,  lambda = predict(Netherland_poisson_model_away, Netherland_temp[i,], type = "response"))
-vector_1[3*(i-1)+1] = sum(Netherland_home_predict_poisson > Netherland_away_predict_poisson) / 500
-vector_1[3*(i-1)+2] = sum(Netherland_home_predict_poisson < Netherland_away_predict_poisson) / 500
-vector_1[3*(i-1)+3] = sum(Netherland_home_predict_poisson == Netherland_away_predict_poisson) / 500
+Netherland_real_vector[27*(j-20)+3*(i-1)+1] = ifelse(Netherland_temp[i,]$home_team_goal > Netherland_temp[i,]$away_team_goal, 1, 0)
+Netherland_real_vector[27*(j-20)+3*(i-1)+2] = ifelse(Netherland_temp[i,]$home_team_goal < Netherland_temp[i,]$away_team_goal, 1, 0)
+Netherland_real_vector[27*(j-20)+3*(i-1)+3] = ifelse(Netherland_temp[i,]$home_team_goal == Netherland_temp[i,]$away_team_goal, 1, 0)
 
 
-Netherland_home_predict_nb = rnbinom(n = 500,  size = Netherland_nb_model_home$theta,
+Netherland_home_predict_poisson = rpois(n = 1500,  lambda = predict(Netherland_poisson_model_home, Netherland_temp[i,], type = "response"))
+Netherland_away_predict_poisson = rpois(n = 1500,  lambda = predict(Netherland_poisson_model_away, Netherland_temp[i,], type = "response"))
+Netherland_poisson_vector[27*(j-20)+3*(i-1)+1] = sum(Netherland_home_predict_poisson > Netherland_away_predict_poisson) / 1500
+Netherland_poisson_vector[27*(j-20)+3*(i-1)+2] = sum(Netherland_home_predict_poisson < Netherland_away_predict_poisson) / 1500
+Netherland_poisson_vector[27*(j-20)+3*(i-1)+3] = sum(Netherland_home_predict_poisson == Netherland_away_predict_poisson) / 1500
+
+
+Netherland_home_predict_nb = rnbinom(n = 1500,  size = Netherland_nb_model_home$theta,
                                               mu = predict(Netherland_nb_model_home, Netherland_temp[i,], type = "response"))
-Netherland_away_predict_nb = rnbinom(n = 500,  size = Netherland_nb_model_away$theta,
+Netherland_away_predict_nb = rnbinom(n = 1500,  size = Netherland_nb_model_away$theta,
                                               mu = predict(Netherland_nb_model_away, Netherland_temp[i,], type = "response"))
-vector_3[3*(i-1)+1] = sum(Netherland_home_predict_nb > Netherland_away_predict_nb) / 500
-vector_3[3*(i-1)+2] = sum(Netherland_home_predict_nb < Netherland_away_predict_nb) / 500
-vector_3[3*(i-1)+3] = sum(Netherland_home_predict_nb == Netherland_away_predict_nb) / 500
+Netherland_nb_vector[27*(j-20)+3*(i-1)+1] = sum(Netherland_home_predict_nb > Netherland_away_predict_nb) / 1500
+Netherland_nb_vector[27*(j-20)+3*(i-1)+2] = sum(Netherland_home_predict_nb < Netherland_away_predict_nb) / 1500
+Netherland_nb_vector[27*(j-20)+3*(i-1)+3] = sum(Netherland_home_predict_nb == Netherland_away_predict_nb) / 1500
 
 
-Netherland_home_predict_zip = rzipois(n = 500, lambda = predict(Netherland_zip_model_home,Netherland_temp[i,],type = "count"), 
+Netherland_home_predict_zip = rzipois(n = 1500, lambda = predict(Netherland_zip_model_home,Netherland_temp[i,],type = "count"),
                                                pstr0 = predict(Netherland_zip_model_home,Netherland_temp[i,],type = "zero"))
-Netherland_away_predict_zip = rzipois(n = 500, lambda = predict(Netherland_zip_model_away,Netherland_temp[i,],type = "count"), 
+Netherland_away_predict_zip = rzipois(n = 1500, lambda = predict(Netherland_zip_model_away,Netherland_temp[i,],type = "count"),
                                                pstr0 = predict(Netherland_zip_model_away,Netherland_temp[i,],type = "zero"))
-vector_4[3*(i-1)+1] = sum(Netherland_home_predict_zip > Netherland_away_predict_zip) / 500
-vector_4[3*(i-1)+2] = sum(Netherland_home_predict_zip < Netherland_away_predict_zip) / 500
-vector_4[3*(i-1)+3] = sum(Netherland_home_predict_zip == Netherland_away_predict_zip) / 500
-
-}
-Netherland_reference = sum((vector_5 - vector_2)^2) / (3*nrow(Netherland_temp))
-Netherland_poisson_brier_vector[j-4] = 1 - (sum((vector_1 - vector_2)^2)/(3*nrow(Netherland_temp))) / Netherland_reference 
-Netherland_nb_brier_vector[j-4] = 1- (sum((vector_3 - vector_2)^2)/(3*nrow(Netherland_temp))) / Netherland_reference
-Netherland_zip_brier_vector[j-4] = 1 - (sum((vector_4 - vector_2)^2)/(3*nrow(Netherland_temp))) / Netherland_reference
+Netherland_zip_vector[27*(j-20)+3*(i-1)+1] = sum(Netherland_home_predict_zip > Netherland_away_predict_zip) / 1500
+Netherland_zip_vector[27*(j-20)+3*(i-1)+2] = sum(Netherland_home_predict_zip < Netherland_away_predict_zip) / 1500
+Netherland_zip_vector[27*(j-20)+3*(i-1)+3] = sum(Netherland_home_predict_zip == Netherland_away_predict_zip) / 1500
 
 }
 
-Netherland_brier_skill = as.data.frame(cbind(Netherland_poisson_brier_vector, Netherland_nb_brier_vector, Netherland_zip_brier_vector)) %>% transmute(Poisson = Netherland_poisson_brier_vector, NB = Netherland_nb_brier_vector, ZIP = Netherland_zip_brier_vector,stage=5:33) %>% pivot_longer(cols = Poisson:ZIP, names_to = "methods", values_to = "brier skill score")
+}
+
+Netherland_poisson_brier_vector = rep(0, 14)
+Netherland_nb_brier_vector = rep(0, 14)
+Netherland_zip_brier_vector = rep(0, 14)
+
+for(k in 1:14) {
+    Netherland_reference_brier =
+      sum((Netherland_reference_vector[1:(27*k)] - Netherland_real_vector[1:(27*k)])^2) / (27*k)
+    Netherland_poisson_brier_vector[k] =
+      1 - (sum((Netherland_poisson_vector[1:(27*k)] - Netherland_real_vector[1:(27*k)])^2)/(27*k))/Netherland_reference_brier
+    Netherland_nb_brier_vector[k] =
+      1 - (sum((Netherland_nb_vector[1:(27*k)] - Netherland_real_vector[1:(27*k)])^2)/(27*k))/Netherland_reference_brier
+    Netherland_zip_brier_vector[k] =
+      1 - (sum((Netherland_zip_vector[1:(27*k)] - Netherland_real_vector[1:(27*k)])^2)/(27*k))/Netherland_reference_brier
+}
+
+sum((Netherland_poisson_vector[1:(27*10)] - Netherland_real_vector[1:(27*10)])^2)/(27*10)
+sum((Netherland_nb_vector[1:(27*10)] - Netherland_real_vector[1:(27*10)])^2)/(27*10)
+sum((Netherland_zip_vector[1:(27*10)] - Netherland_real_vector[1:(27*10)])^2)/(27*10)
+
+
+Netherland_brier_skill = as.data.frame(cbind(Netherland_poisson_brier_vector, Netherland_nb_brier_vector, Netherland_zip_brier_vector)) %>% transmute(Poisson = Netherland_poisson_brier_vector, NB = Netherland_nb_brier_vector, ZIP = Netherland_zip_brier_vector,stage=21:34) %>% pivot_longer(cols = Poisson:ZIP, names_to = "methods", values_to = "brier skill score")
 
 ggplot(data = Netherland_brier_skill) + geom_line(aes(x = stage, y = `brier skill score`,color = methods))+ xlab("test_stage") + ylab("Netherland Brier Skill Score")+theme_bw()
+```
+
+
+```{r, warning=FALSE}
+f = Netherland_data$home_team_goal
+Netherland_data_fit_poisson = fitdistr(f, densfun = "poisson")
+Netherland_data_fit_poisson$loglik
+Netherland_data_fit_nb = fitdistr(f, densfun = "Negative Binomial")
+Netherland_data_fit_nb$loglik
+Netherland_data_fit_zip <- fitdist(f, distr = 'zip',start = list(lambda=mean(f),pi=sum(f == 0)/length(f)))
+Netherland_data_fit_zip$loglik # pick
 
 ```
 
@@ -786,29 +949,22 @@ ggplot(data = Netherland_brier_skill) + geom_line(aes(x = stage, y = `brier skil
 
 ```{r}
 #Poland reference
+table(Poland_data$stage)
 dim(Poland_data_old)
 sum(Poland_data_old$home_team_goal > Poland_data_old$away_team_goal)
 sum(Poland_data_old$home_team_goal < Poland_data_old$away_team_goal)
 sum(Poland_data_old$home_team_goal == Poland_data_old$away_team_goal)
 ```
 
-
-```{r, warning=FALSE}
-# g = Poland_data$home_team_goal
-# Poland_data_fit_poisson = fitdistr(g, densfun = "poisson")
-# Poland_data_fit_poisson$loglik
-# Poland_data_fit_nb = fitdistr(g, densfun = "Negative Binomial")
-# Poland_data_fit_nb$loglik # pick
-# Poland_data_fit_zip <- fitdist(g, distr = 'zip',start = list(lambda=mean(g),pi=sum(g == 0)/length(g)))
-# Poland_data_fit_zip$loglik
-
-
+```{r, warning = FALSE, message=FALSE}
 set.seed(23)
-Poland_poisson_brier_vector = rep(0, 25)
-Poland_nb_brier_vector = rep(0, 25)
-Poland_zip_brier_vector = rep(0, 25)
+Poland_real_vector = rep(0,3*10*8)
+Poland_poisson_vector = rep(0, 3*10*8)
+Poland_nb_vector = rep(0, 3*10*8)
+Poland_zip_vector = rep(0, 3*10*8)
+Poland_reference_vector = rep(c(114/240,60/240,66/240), 10*8)
 
-for(j in 5:29){
+for(j in 20:29){
 Poland_poisson_model_home <- glm(home_team_goal ~ home_team_name + away_team_name, family = "poisson", data = subset(Poland_data, stage %in% 1:j))
 Poland_poisson_model_away <- glm(away_team_goal ~ home_team_name + away_team_name, family = "poisson", data = subset(Poland_data, stage %in% 1:j))
 Poland_nb_model_home <- glm.nb(home_team_goal ~ home_team_name + away_team_name, data = subset(Poland_data, stage %in% 1:j))
@@ -818,81 +974,165 @@ Poland_zip_model_away <- zeroinfl(away_team_goal ~ home_team_name + away_team_na
 
 
 Poland_temp = subset(Poland_data, stage == j+1)
-vector_1 = rep(0, 3*nrow(Poland_temp))
-vector_2 = rep(0, 3*nrow(Poland_temp))
-vector_3 = rep(0, 3*nrow(Poland_temp))
-vector_4 = rep(0, 3*nrow(Poland_temp))
-vector_5 = rep(c(114/240,60/240,66/240), nrow(Poland_temp))
+
 
 for(i in 1:nrow(Poland_temp)) {
 
-vector_2[3*(i-1)+1] = ifelse(Poland_temp[i,]$home_team_goal > Poland_temp[i,]$away_team_goal, 1, 0)
-vector_2[3*(i-1)+2] = ifelse(Poland_temp[i,]$home_team_goal < Poland_temp[i,]$away_team_goal, 1, 0)
-vector_2[3*(i-1)+3] = ifelse(Poland_temp[i,]$home_team_goal == Poland_temp[i,]$away_team_goal, 1, 0) 
+Poland_real_vector[24*(j-20)+3*(i-1)+1] = ifelse(Poland_temp[i,]$home_team_goal > Poland_temp[i,]$away_team_goal, 1, 0)
+Poland_real_vector[24*(j-20)+3*(i-1)+2] = ifelse(Poland_temp[i,]$home_team_goal < Poland_temp[i,]$away_team_goal, 1, 0)
+Poland_real_vector[24*(j-20)+3*(i-1)+3] = ifelse(Poland_temp[i,]$home_team_goal == Poland_temp[i,]$away_team_goal, 1, 0) 
   
 
-Poland_home_predict_poisson = rpois(n = 500,  lambda = predict(Poland_poisson_model_home, Poland_temp[i,], type = "response"))
-Poland_away_predict_poisson = rpois(n = 500,  lambda = predict(Poland_poisson_model_away, Poland_temp[i,], type = "response"))
-vector_1[3*(i-1)+1] = sum(Poland_home_predict_poisson > Poland_away_predict_poisson) / 500
-vector_1[3*(i-1)+2] = sum(Poland_home_predict_poisson < Poland_away_predict_poisson) / 500
-vector_1[3*(i-1)+3] = sum(Poland_home_predict_poisson == Poland_away_predict_poisson) / 500
+Poland_home_predict_poisson = rpois(n = 1500,  lambda = predict(Poland_poisson_model_home, Poland_temp[i,], type = "response"))
+Poland_away_predict_poisson = rpois(n = 1500,  lambda = predict(Poland_poisson_model_away, Poland_temp[i,], type = "response"))
+Poland_poisson_vector[24*(j-20)+3*(i-1)+1] = sum(Poland_home_predict_poisson > Poland_away_predict_poisson) / 1500
+Poland_poisson_vector[24*(j-20)+3*(i-1)+2] = sum(Poland_home_predict_poisson < Poland_away_predict_poisson) / 1500
+Poland_poisson_vector[24*(j-20)+3*(i-1)+3] = sum(Poland_home_predict_poisson == Poland_away_predict_poisson) / 1500
 
 
-Poland_home_predict_nb = rnbinom(n = 500,  size = Poland_nb_model_home$theta,
+Poland_home_predict_nb = rnbinom(n = 1500,  size = Poland_nb_model_home$theta,
                                               mu = predict(Poland_nb_model_home, Poland_temp[i,], type = "response"))
-Poland_away_predict_nb = rnbinom(n = 500,  size = Poland_nb_model_away$theta,
+Poland_away_predict_nb = rnbinom(n = 1500,  size = Poland_nb_model_away$theta,
                                               mu = predict(Poland_nb_model_away, Poland_temp[i,], type = "response"))
-vector_3[3*(i-1)+1] = sum(Poland_home_predict_nb > Poland_away_predict_nb) / 500
-vector_3[3*(i-1)+2] = sum(Poland_home_predict_nb < Poland_away_predict_nb) / 500
-vector_3[3*(i-1)+3] = sum(Poland_home_predict_nb == Poland_away_predict_nb) / 500
+Poland_nb_vector[24*(j-20)+3*(i-1)+1] = sum(Poland_home_predict_nb > Poland_away_predict_nb) / 1500
+Poland_nb_vector[24*(j-20)+3*(i-1)+2] = sum(Poland_home_predict_nb < Poland_away_predict_nb) / 1500
+Poland_nb_vector[24*(j-20)+3*(i-1)+3] = sum(Poland_home_predict_nb == Poland_away_predict_nb) / 1500
 
 
-Poland_home_predict_zip = rzipois(n = 500, lambda = predict(Poland_zip_model_home,Poland_temp[i,],type = "count"), 
+Poland_home_predict_zip = rzipois(n = 1500, lambda = predict(Poland_zip_model_home,Poland_temp[i,],type = "count"), 
                                                pstr0 = predict(Poland_zip_model_home,Poland_temp[i,],type = "zero"))
-Poland_away_predict_zip = rzipois(n = 500, lambda = predict(Poland_zip_model_away,Poland_temp[i,],type = "count"), 
+Poland_away_predict_zip = rzipois(n = 1500, lambda = predict(Poland_zip_model_away,Poland_temp[i,],type = "count"), 
                                                pstr0 = predict(Poland_zip_model_away,Poland_temp[i,],type = "zero"))
-vector_4[3*(i-1)+1] = sum(Poland_home_predict_zip > Poland_away_predict_zip) / 500
-vector_4[3*(i-1)+2] = sum(Poland_home_predict_zip < Poland_away_predict_zip) / 500
-vector_4[3*(i-1)+3] = sum(Poland_home_predict_zip == Poland_away_predict_zip) / 500
+Poland_zip_vector[24*(j-20)+3*(i-1)+1] = sum(Poland_home_predict_zip > Poland_away_predict_zip) / 1500
+Poland_zip_vector[24*(j-20)+3*(i-1)+2] = sum(Poland_home_predict_zip < Poland_away_predict_zip) / 1500
+Poland_zip_vector[24*(j-20)+3*(i-1)+3] = sum(Poland_home_predict_zip == Poland_away_predict_zip) / 1500
 
 }
 
-Poland_reference = sum((vector_5 - vector_2)^2) / (3*nrow(Poland_temp))
-Poland_poisson_brier_vector[j-4] = 1 - (sum((vector_1 - vector_2)^2) / (3*nrow(Poland_temp)))/Poland_reference
-Poland_nb_brier_vector[j-4] = 1- (sum((vector_3 - vector_2)^2) / (3*nrow(Poland_temp)))/Poland_reference
-Poland_zip_brier_vector[j-4] = 1 - (sum((vector_4 - vector_2)^2) / (3*nrow(Poland_temp)))/Poland_reference
-
 }
 
-Poland_brier_skill = as.data.frame(cbind(Poland_poisson_brier_vector, Poland_nb_brier_vector, Poland_zip_brier_vector)) %>% transmute(Poisson = Poland_poisson_brier_vector, NB = Poland_nb_brier_vector, ZIP = Poland_zip_brier_vector,stage=5:29) %>% pivot_longer(cols = Poisson:ZIP, names_to = "methods", values_to = "brier skill score")
+Poland_poisson_brier_vector = rep(0, 10)
+Poland_nb_brier_vector = rep(0, 10)
+Poland_zip_brier_vector = rep(0, 10)
+
+for(k in 1:10) {
+    Poland_reference_brier = 
+      sum((Poland_reference_vector[1:(24*k)] - Poland_real_vector[1:(24*k)])^2) / (24*k)
+    Poland_poisson_brier_vector[k] = 
+      1 - (sum((Poland_poisson_vector[1:(24*k)] - Poland_real_vector[1:(24*k)])^2)/(24*k))/Poland_reference_brier
+   Poland_nb_brier_vector[k] = 
+      1 - (sum((Poland_nb_vector[1:(24*k)] - Poland_real_vector[1:(24*k)])^2)/(24*k))/Poland_reference_brier
+    Poland_zip_brier_vector[k] = 
+      1 - (sum((Poland_zip_vector[1:(24*k)] - Poland_real_vector[1:(24*k)])^2)/(24*k))/Poland_reference_brier
+}
+
+sum((Poland_poisson_vector[1:(24*10)] - Poland_real_vector[1:(24*10)])^2)/(24*10)
+sum((Poland_nb_vector[1:(24*10)] - Poland_real_vector[1:(24*10)])^2)/(24*10)
+sum((Poland_zip_vector[1:(24*10)] - Poland_real_vector[1:(24*10)])^2)/(24*10)
+
+
+Poland_brier_skill = as.data.frame(cbind(Poland_poisson_brier_vector, Poland_nb_brier_vector, Poland_zip_brier_vector)) %>% transmute(Poisson = Poland_poisson_brier_vector, NB = Poland_nb_brier_vector, ZIP = Poland_zip_brier_vector,stage=21:30) %>% pivot_longer(cols = Poisson:ZIP, names_to = "methods", values_to = "brier skill score")
 
 ggplot(data = Poland_brier_skill) + geom_line(aes(x = stage, y = `brier skill score`,color = methods))+ xlab("test_stage") + ylab("Poland Brier Skill Score")+theme_bw()
+```
+
+
+```{r, warning=FALSE}
+g = Poland_data$home_team_goal
+Poland_data_fit_poisson = fitdistr(g, densfun = "poisson")
+Poland_data_fit_poisson$loglik
+Poland_data_fit_nb = fitdistr(g, densfun = "Negative Binomial")
+Poland_data_fit_nb$loglik # pick
+Poland_data_fit_zip <- fitdist(g, distr = 'zip',start = list(lambda=mean(g),pi=sum(g == 0)/length(g)))
+Poland_data_fit_zip$loglik
+
+
+# set.seed(23)
+# Poland_poisson_brier_vector = rep(0, 20)
+# Poland_nb_brier_vector = rep(0, 20)
+# Poland_zip_brier_vector = rep(0, 20)
+# 
+# for(j in 10:29){
+# Poland_poisson_model_home <- glm(home_team_goal ~ home_team_name + away_team_name, family = "poisson", data = subset(Poland_data, stage %in% 1:j))
+# Poland_poisson_model_away <- glm(away_team_goal ~ home_team_name + away_team_name, family = "poisson", data = subset(Poland_data, stage %in% 1:j))
+# Poland_nb_model_home <- glm.nb(home_team_goal ~ home_team_name + away_team_name, data = subset(Poland_data, stage %in% 1:j))
+# Poland_nb_model_away <- glm.nb(away_team_goal ~ home_team_name + away_team_name, data = subset(Poland_data, stage %in% 1:j))
+# Poland_zip_model_home <- zeroinfl(home_team_goal ~ home_team_name + away_team_name, data = subset(Poland_data, stage %in% 1:j))
+# Poland_zip_model_away <- zeroinfl(away_team_goal ~ home_team_name + away_team_name, data = subset(Poland_data, stage %in% 1:j))
+# 
+# 
+# Poland_temp = subset(Poland_data, stage == j+1)
+# vector_1 = rep(0, 3*nrow(Poland_temp))
+# vector_2 = rep(0, 3*nrow(Poland_temp))
+# vector_3 = rep(0, 3*nrow(Poland_temp))
+# vector_4 = rep(0, 3*nrow(Poland_temp))
+# vector_5 = rep(c(114/240,60/240,66/240), nrow(Poland_temp))
+# 
+# for(i in 1:nrow(Poland_temp)) {
+# 
+# vector_2[3*(i-1)+1] = ifelse(Poland_temp[i,]$home_team_goal > Poland_temp[i,]$away_team_goal, 1, 0)
+# vector_2[3*(i-1)+2] = ifelse(Poland_temp[i,]$home_team_goal < Poland_temp[i,]$away_team_goal, 1, 0)
+# vector_2[3*(i-1)+3] = ifelse(Poland_temp[i,]$home_team_goal == Poland_temp[i,]$away_team_goal, 1, 0) 
+#   
+# 
+# Poland_home_predict_poisson = rpois(n = 1500,  lambda = predict(Poland_poisson_model_home, Poland_temp[i,], type = "response"))
+# Poland_away_predict_poisson = rpois(n = 1500,  lambda = predict(Poland_poisson_model_away, Poland_temp[i,], type = "response"))
+# vector_1[3*(i-1)+1] = sum(Poland_home_predict_poisson > Poland_away_predict_poisson) / 1500
+# vector_1[3*(i-1)+2] = sum(Poland_home_predict_poisson < Poland_away_predict_poisson) / 1500
+# vector_1[3*(i-1)+3] = sum(Poland_home_predict_poisson == Poland_away_predict_poisson) / 1500
+# 
+# 
+# Poland_home_predict_nb = rnbinom(n = 1500,  size = Poland_nb_model_home$theta,
+#                                               mu = predict(Poland_nb_model_home, Poland_temp[i,], type = "response"))
+# Poland_away_predict_nb = rnbinom(n = 1500,  size = Poland_nb_model_away$theta,
+#                                               mu = predict(Poland_nb_model_away, Poland_temp[i,], type = "response"))
+# vector_3[3*(i-1)+1] = sum(Poland_home_predict_nb > Poland_away_predict_nb) / 1500
+# vector_3[3*(i-1)+2] = sum(Poland_home_predict_nb < Poland_away_predict_nb) / 1500
+# vector_3[3*(i-1)+3] = sum(Poland_home_predict_nb == Poland_away_predict_nb) / 1500
+# 
+# 
+# Poland_home_predict_zip = rzipois(n = 1500, lambda = predict(Poland_zip_model_home,Poland_temp[i,],type = "count"), 
+#                                                pstr0 = predict(Poland_zip_model_home,Poland_temp[i,],type = "zero"))
+# Poland_away_predict_zip = rzipois(n = 1500, lambda = predict(Poland_zip_model_away,Poland_temp[i,],type = "count"), 
+#                                                pstr0 = predict(Poland_zip_model_away,Poland_temp[i,],type = "zero"))
+# vector_4[3*(i-1)+1] = sum(Poland_home_predict_zip > Poland_away_predict_zip) / 1500
+# vector_4[3*(i-1)+2] = sum(Poland_home_predict_zip < Poland_away_predict_zip) / 1500
+# vector_4[3*(i-1)+3] = sum(Poland_home_predict_zip == Poland_away_predict_zip) / 1500
+# 
+# }
+# 
+# Poland_reference = sum((vector_5 - vector_2)^2) / (3*nrow(Poland_temp))
+# Poland_poisson_brier_vector[j-9] = 1 - (sum((vector_1 - vector_2)^2) / (3*nrow(Poland_temp)))/Poland_reference
+# Poland_nb_brier_vector[j-9] = 1- (sum((vector_3 - vector_2)^2) / (3*nrow(Poland_temp)))/Poland_reference
+# Poland_zip_brier_vector[j-9] = 1 - (sum((vector_4 - vector_2)^2) / (3*nrow(Poland_temp)))/Poland_reference
+# 
+# }
+# 
+# Poland_brier_skill = as.data.frame(cbind(Poland_poisson_brier_vector, Poland_nb_brier_vector, Poland_zip_brier_vector)) %>% transmute(Poisson = Poland_poisson_brier_vector, NB = Poland_nb_brier_vector, ZIP = Poland_zip_brier_vector,stage=10:29) %>% pivot_longer(cols = Poisson:ZIP, names_to = "methods", values_to = "brier skill score")
+# 
+# ggplot(data = Poland_brier_skill) + geom_line(aes(x = stage, y = `brier skill score`,color = methods))+ xlab("test_stage") + ylab("Poland Brier Skill Score")+theme_bw()
 
 ```
 
 ```{r}
 #Portugal
+table(Portugal_data$stage)
 dim(Portugal_data_old)
 sum(Portugal_data_old$home_team_goal > Portugal_data_old$away_team_goal)
 sum(Portugal_data_old$home_team_goal < Portugal_data_old$away_team_goal)
 sum(Portugal_data_old$home_team_goal == Portugal_data_old$away_team_goal)
 ```
 
-```{r, warning=FALSE}
-# h = Portugal_data$home_team_goal
-# Portugal_data_fit_poisson = fitdistr(h, densfun = "poisson")
-# Portugal_data_fit_poisson$loglik
-# Portugal_data_fit_nb = fitdistr(h, densfun = "Negative Binomial")
-# Portugal_data_fit_nb$loglik # pick
-# Portugal_data_fit_zip <- fitdist(h, distr = 'zip',start = list(lambda=mean(h),pi=sum(h == 0)/length(h)))
-# Portugal_data_fit_zip$loglik
-
+```{r, message=FALSE, warning=FALSE}
 set.seed(23)
-Portugal_poisson_brier_vector = rep(0, 29)
-Portugal_nb_brier_vector = rep(0, 29)
-Portugal_zip_brier_vector = rep(0, 29)
 
-for(j in 5:33){
+Portugal_real_vector = rep(0,3*14*9)
+Portugal_poisson_vector = rep(0, 3*14*9)
+Portugal_nb_vector = rep(0, 3*14*9)
+Portugal_zip_vector = rep(0, 3*14*9)
+Portugal_reference_vector = rep(c(137/306,84/306,85/306), 14*9)
+
+for(j in 20:33){
 Portugal_poisson_model_home <- glm(home_team_goal ~ home_team_name + away_team_name, family = "poisson", data = subset(Portugal_data, stage %in% 1:j))
 Portugal_poisson_model_away <- glm(away_team_goal ~ home_team_name + away_team_name, family = "poisson", data = subset(Portugal_data, stage %in% 1:j))
 Portugal_nb_model_home <- glm.nb(home_team_goal ~ home_team_name + away_team_name, data = subset(Portugal_data, stage %in% 1:j))
@@ -902,59 +1142,146 @@ Portugal_zip_model_away <- zeroinfl(away_team_goal ~ home_team_name + away_team_
 
 
 Portugal_temp = subset(Portugal_data, stage == j+1)
-vector_1 = rep(0, 3*nrow(Portugal_temp))
-vector_2 = rep(0, 3*nrow(Portugal_temp))
-vector_3 = rep(0, 3*nrow(Portugal_temp))
-vector_4 = rep(0, 3*nrow(Portugal_temp))
-vector_5 = rep(c(137/306,84/306,85/306),nrow(Portugal_temp))
+
 
 for(i in 1:nrow(Portugal_temp)) {
 
-vector_2[3*(i-1)+1] = ifelse(Portugal_temp[i,]$home_team_goal > Portugal_temp[i,]$away_team_goal, 1, 0)
-vector_2[3*(i-1)+2] = ifelse(Portugal_temp[i,]$home_team_goal < Portugal_temp[i,]$away_team_goal, 1, 0)
-vector_2[3*(i-1)+3] = ifelse(Portugal_temp[i,]$home_team_goal == Portugal_temp[i,]$away_team_goal, 1, 0) 
+Portugal_real_vector[27*(j-20)+3*(i-1)+1] = ifelse(Portugal_temp[i,]$home_team_goal > Portugal_temp[i,]$away_team_goal, 1, 0)
+Portugal_real_vector[27*(j-20)+3*(i-1)+2] = ifelse(Portugal_temp[i,]$home_team_goal < Portugal_temp[i,]$away_team_goal, 1, 0)
+Portugal_real_vector[27*(j-20)+3*(i-1)+3] = ifelse(Portugal_temp[i,]$home_team_goal == Portugal_temp[i,]$away_team_goal, 1, 0) 
   
 
-Portugal_home_predict_poisson = rpois(n = 500,  lambda = predict(Portugal_poisson_model_home, Portugal_temp[i,], type = "response"))
-Portugal_away_predict_poisson = rpois(n = 500,  lambda = predict(Portugal_poisson_model_away, Portugal_temp[i,], type = "response"))
-vector_1[3*(i-1)+1] = sum(Portugal_home_predict_poisson > Portugal_away_predict_poisson) / 500
-vector_1[3*(i-1)+2] = sum(Portugal_home_predict_poisson < Portugal_away_predict_poisson) / 500
-vector_1[3*(i-1)+3] = sum(Portugal_home_predict_poisson == Portugal_away_predict_poisson) / 500
+Portugal_home_predict_poisson = rpois(n = 1500,  lambda = predict(Portugal_poisson_model_home, Portugal_temp[i,], type = "response"))
+Portugal_away_predict_poisson = rpois(n = 1500,  lambda = predict(Portugal_poisson_model_away, Portugal_temp[i,], type = "response"))
+Portugal_poisson_vector[27*(j-20)+3*(i-1)+1] = sum(Portugal_home_predict_poisson > Portugal_away_predict_poisson) / 1500
+Portugal_poisson_vector[27*(j-20)+3*(i-1)+2] = sum(Portugal_home_predict_poisson < Portugal_away_predict_poisson) / 1500
+Portugal_poisson_vector[27*(j-20)+3*(i-1)+3] = sum(Portugal_home_predict_poisson == Portugal_away_predict_poisson) / 1500
 
 
-Portugal_home_predict_nb = rnbinom(n = 500,  size = Portugal_nb_model_home$theta,
+Portugal_home_predict_nb = rnbinom(n = 1500,  size = Portugal_nb_model_home$theta,
                                               mu = predict(Portugal_nb_model_home, Portugal_temp[i,], type = "response"))
-Portugal_away_predict_nb = rnbinom(n = 500,  size = Portugal_nb_model_away$theta,
+Portugal_away_predict_nb = rnbinom(n = 1500,  size = Portugal_nb_model_away$theta,
                                               mu = predict(Portugal_nb_model_away, Portugal_temp[i,], type = "response"))
-vector_3[3*(i-1)+1] = sum(Portugal_home_predict_nb > Portugal_away_predict_nb) / 500
-vector_3[3*(i-1)+2] = sum(Portugal_home_predict_nb < Portugal_away_predict_nb) / 500
-vector_3[3*(i-1)+3] = sum(Portugal_home_predict_nb == Portugal_away_predict_nb) / 500
+Portugal_nb_vector[27*(j-20)+3*(i-1)+1] = sum(Portugal_home_predict_nb > Portugal_away_predict_nb) / 1500
+Portugal_nb_vector[27*(j-20)+3*(i-1)+2] = sum(Portugal_home_predict_nb < Portugal_away_predict_nb) / 1500
+Portugal_nb_vector[27*(j-20)+3*(i-1)+3] = sum(Portugal_home_predict_nb == Portugal_away_predict_nb) / 1500
 
 
-Portugal_home_predict_zip = rzipois(n = 500, lambda = predict(Portugal_zip_model_home,Portugal_temp[i,],type = "count"), 
+Portugal_home_predict_zip = rzipois(n = 1500, lambda = predict(Portugal_zip_model_home,Portugal_temp[i,],type = "count"), 
                                                pstr0 = predict(Portugal_zip_model_home,Portugal_temp[i,],type = "zero"))
-Portugal_away_predict_zip = rzipois(n = 500, lambda = predict(Portugal_zip_model_away,Portugal_temp[i,],type = "count"), 
+Portugal_away_predict_zip = rzipois(n = 1500, lambda = predict(Portugal_zip_model_away,Portugal_temp[i,],type = "count"), 
                                                pstr0 = predict(Portugal_zip_model_away,Portugal_temp[i,],type = "zero"))
-vector_4[3*(i-1)+1] = sum(Portugal_home_predict_zip > Portugal_away_predict_zip) / 500
-vector_4[3*(i-1)+2] = sum(Portugal_home_predict_zip < Portugal_away_predict_zip) / 500
-vector_4[3*(i-1)+3] = sum(Portugal_home_predict_zip == Portugal_away_predict_zip) / 500
+Portugal_zip_vector[27*(j-20)+3*(i-1)+1] = sum(Portugal_home_predict_zip > Portugal_away_predict_zip) / 1500
+Portugal_zip_vector[27*(j-20)+3*(i-1)+2] = sum(Portugal_home_predict_zip < Portugal_away_predict_zip) / 1500
+Portugal_zip_vector[27*(j-20)+3*(i-1)+3] = sum(Portugal_home_predict_zip == Portugal_away_predict_zip) / 1500
 
 }
 
-Portugal_reference = sum((vector_5 - vector_2)^2) / (3*nrow(Portugal_temp))
-Portugal_poisson_brier_vector[j-4] = 1 - (sum((vector_1 - vector_2)^2) / (3*nrow(Portugal_temp)))/Portugal_reference
-Portugal_nb_brier_vector[j-4] = 1- (sum((vector_3 - vector_2)^2) / (3*nrow(Portugal_temp)))/Portugal_reference
-Portugal_zip_brier_vector[j-4] = 1 - (sum((vector_4 - vector_2)^2) / (3*nrow(Portugal_temp)))/Portugal_reference
-
 }
 
-Portugal_brier_skill = as.data.frame(cbind(Portugal_poisson_brier_vector, Portugal_nb_brier_vector, Portugal_zip_brier_vector)) %>% transmute(Poisson = Portugal_poisson_brier_vector, NB = Portugal_nb_brier_vector, ZIP = Portugal_zip_brier_vector,stage=5:33) %>% pivot_longer(cols = Poisson:ZIP, names_to = "methods", values_to = "brier skill score")
+Portugal_poisson_brier_vector = rep(0, 14)
+Portugal_nb_brier_vector = rep(0, 14)
+Portugal_zip_brier_vector = rep(0, 14)
+for(k in 1:14) {
+    Portugal_reference_brier = 
+      sum((Portugal_reference_vector[1:(27*k)] - Portugal_real_vector[1:(27*k)])^2) / (27*k)
+    Portugal_poisson_brier_vector[k] = 
+      1 - (sum((Portugal_poisson_vector[1:(27*k)] - Portugal_real_vector[1:(27*k)])^2)/(27*k))/Portugal_reference_brier
+   Portugal_nb_brier_vector[k] = 
+      1 - (sum((Portugal_nb_vector[1:(27*k)] - Portugal_real_vector[1:(27*k)])^2)/(27*k))/Portugal_reference_brier
+    Portugal_zip_brier_vector[k] = 
+      1 - (sum((Portugal_zip_vector[1:(27*k)] - Portugal_real_vector[1:(27*k)])^2)/(27*k))/Portugal_reference_brier
+}
+
+sum((Portugal_poisson_vector[1:(27*10)] - Portugal_real_vector[1:(27*10)])^2)/(27*10)
+sum((Portugal_nb_vector[1:(27*10)] - Portugal_real_vector[1:(27*10)])^2)/(27*10)
+sum((Portugal_zip_vector[1:(27*10)] - Portugal_real_vector[1:(27*10)])^2)/(27*10)
+
+
+Portugal_brier_skill = as.data.frame(cbind(Portugal_poisson_brier_vector, Portugal_nb_brier_vector, Portugal_zip_brier_vector)) %>% transmute(Poisson = Portugal_poisson_brier_vector, NB = Portugal_nb_brier_vector, ZIP = Portugal_zip_brier_vector,stage=21:34) %>% pivot_longer(cols = Poisson:ZIP, names_to = "methods", values_to = "brier skill score")
 
 ggplot(data = Portugal_brier_skill) + geom_line(aes(x = stage, y = `brier skill score`,color = methods))+ xlab("test_stage") + ylab("Portugal Brier Skill Score")+theme_bw()
 ```
 
+
+```{r, warning=FALSE}
+h = Portugal_data$home_team_goal
+Portugal_data_fit_poisson = fitdistr(h, densfun = "poisson")
+Portugal_data_fit_poisson$loglik
+Portugal_data_fit_nb = fitdistr(h, densfun = "Negative Binomial")
+Portugal_data_fit_nb$loglik # pick
+Portugal_data_fit_zip <- fitdist(h, distr = 'zip',start = list(lambda=mean(h),pi=sum(h == 0)/length(h)))
+Portugal_data_fit_zip$loglik
+
+# set.seed(23)
+# Portugal_poisson_brier_vector = rep(0, 24)
+# Portugal_nb_brier_vector = rep(0, 24)
+# Portugal_zip_brier_vector = rep(0, 24)
+# 
+# for(j in 10:33){
+# Portugal_poisson_model_home <- glm(home_team_goal ~ home_team_name + away_team_name, family = "poisson", data = subset(Portugal_data, stage %in% 1:j))
+# Portugal_poisson_model_away <- glm(away_team_goal ~ home_team_name + away_team_name, family = "poisson", data = subset(Portugal_data, stage %in% 1:j))
+# Portugal_nb_model_home <- glm.nb(home_team_goal ~ home_team_name + away_team_name, data = subset(Portugal_data, stage %in% 1:j))
+# Portugal_nb_model_away <- glm.nb(away_team_goal ~ home_team_name + away_team_name, data = subset(Portugal_data, stage %in% 1:j))
+# Portugal_zip_model_home <- zeroinfl(home_team_goal ~ home_team_name + away_team_name, data = subset(Portugal_data, stage %in% 1:j))
+# Portugal_zip_model_away <- zeroinfl(away_team_goal ~ home_team_name + away_team_name, data = subset(Portugal_data, stage %in% 1:j))
+# 
+# 
+# Portugal_temp = subset(Portugal_data, stage == j+1)
+# vector_1 = rep(0, 3*nrow(Portugal_temp))
+# vector_2 = rep(0, 3*nrow(Portugal_temp))
+# vector_3 = rep(0, 3*nrow(Portugal_temp))
+# vector_4 = rep(0, 3*nrow(Portugal_temp))
+# vector_5 = rep(c(137/306,84/306,85/306),nrow(Portugal_temp))
+# 
+# for(i in 1:nrow(Portugal_temp)) {
+# 
+# vector_2[3*(i-1)+1] = ifelse(Portugal_temp[i,]$home_team_goal > Portugal_temp[i,]$away_team_goal, 1, 0)
+# vector_2[3*(i-1)+2] = ifelse(Portugal_temp[i,]$home_team_goal < Portugal_temp[i,]$away_team_goal, 1, 0)
+# vector_2[3*(i-1)+3] = ifelse(Portugal_temp[i,]$home_team_goal == Portugal_temp[i,]$away_team_goal, 1, 0) 
+#   
+# 
+# Portugal_home_predict_poisson = rpois(n = 1500,  lambda = predict(Portugal_poisson_model_home, Portugal_temp[i,], type = "response"))
+# Portugal_away_predict_poisson = rpois(n = 1500,  lambda = predict(Portugal_poisson_model_away, Portugal_temp[i,], type = "response"))
+# vector_1[3*(i-1)+1] = sum(Portugal_home_predict_poisson > Portugal_away_predict_poisson) / 1500
+# vector_1[3*(i-1)+2] = sum(Portugal_home_predict_poisson < Portugal_away_predict_poisson) / 1500
+# vector_1[3*(i-1)+3] = sum(Portugal_home_predict_poisson == Portugal_away_predict_poisson) / 1500
+# 
+# 
+# Portugal_home_predict_nb = rnbinom(n = 1500,  size = Portugal_nb_model_home$theta,
+#                                               mu = predict(Portugal_nb_model_home, Portugal_temp[i,], type = "response"))
+# Portugal_away_predict_nb = rnbinom(n = 1500,  size = Portugal_nb_model_away$theta,
+#                                               mu = predict(Portugal_nb_model_away, Portugal_temp[i,], type = "response"))
+# vector_3[3*(i-1)+1] = sum(Portugal_home_predict_nb > Portugal_away_predict_nb) / 1500
+# vector_3[3*(i-1)+2] = sum(Portugal_home_predict_nb < Portugal_away_predict_nb) / 1500
+# vector_3[3*(i-1)+3] = sum(Portugal_home_predict_nb == Portugal_away_predict_nb) / 1500
+# 
+# 
+# Portugal_home_predict_zip = rzipois(n = 1500, lambda = predict(Portugal_zip_model_home,Portugal_temp[i,],type = "count"), 
+#                                                pstr0 = predict(Portugal_zip_model_home,Portugal_temp[i,],type = "zero"))
+# Portugal_away_predict_zip = rzipois(n = 1500, lambda = predict(Portugal_zip_model_away,Portugal_temp[i,],type = "count"), 
+#                                                pstr0 = predict(Portugal_zip_model_away,Portugal_temp[i,],type = "zero"))
+# vector_4[3*(i-1)+1] = sum(Portugal_home_predict_zip > Portugal_away_predict_zip) / 1500
+# vector_4[3*(i-1)+2] = sum(Portugal_home_predict_zip < Portugal_away_predict_zip) / 1500
+# vector_4[3*(i-1)+3] = sum(Portugal_home_predict_zip == Portugal_away_predict_zip) / 1500
+# 
+# }
+# 
+# Portugal_reference = sum((vector_5 - vector_2)^2) / (3*nrow(Portugal_temp))
+# Portugal_poisson_brier_vector[j-9] = 1 - (sum((vector_1 - vector_2)^2) / (3*nrow(Portugal_temp)))/Portugal_reference
+# Portugal_nb_brier_vector[j-9] = 1- (sum((vector_3 - vector_2)^2) / (3*nrow(Portugal_temp)))/Portugal_reference
+# Portugal_zip_brier_vector[j-9] = 1 - (sum((vector_4 - vector_2)^2) / (3*nrow(Portugal_temp)))/Portugal_reference
+# 
+# }
+# 
+# Portugal_brier_skill = as.data.frame(cbind(Portugal_poisson_brier_vector, Portugal_nb_brier_vector, Portugal_zip_brier_vector)) %>% transmute(Poisson = Portugal_poisson_brier_vector, NB = Portugal_nb_brier_vector, ZIP = Portugal_zip_brier_vector,stage=10:33) %>% pivot_longer(cols = Poisson:ZIP, names_to = "methods", values_to = "brier skill score")
+# 
+# ggplot(data = Portugal_brier_skill) + geom_line(aes(x = stage, y = `brier skill score`,color = methods))+ xlab("test_stage") + ylab("Portugal Brier Skill Score")+theme_bw()
+```
+
 ```{r}
 #Scotland
+table(Scotland_data$stage)
 dim(Scotland_data_old)
 sum(Scotland_data_old$home_team_goal > Scotland_data_old$away_team_goal)
 sum(Scotland_data_old$home_team_goal < Scotland_data_old$away_team_goal)
@@ -962,21 +1289,15 @@ sum(Scotland_data_old$home_team_goal == Scotland_data_old$away_team_goal)
 ```
 
 
-```{r, warning = FALSE}
-# i = Scotland_data$home_team_goal
-# Scotland_data_fit_poisson = fitdistr(i, densfun = "poisson")
-# Scotland_data_fit_poisson$loglik
-# Scotland_data_fit_nb = fitdistr(i, densfun = "Negative Binomial")
-# Scotland_data_fit_nb$loglik # pick
-# Scotland_data_fit_zip <- fitdist(i, distr = 'zip',start = list(lambda=mean(i),pi=sum(i == 0)/length(i)))
-# Scotland_data_fit_zip$loglik
-
+```{r, warning = FALSE, message=FALSE}
 set.seed(23)
-Scotland_poisson_brier_vector = rep(0, 33)
-Scotland_nb_brier_vector = rep(0, 33)
-Scotland_zip_brier_vector = rep(0, 33)
+Scotland_real_vector = rep(0,3*18*6)
+Scotland_poisson_vector = rep(0, 3*18*6)
+Scotland_nb_vector = rep(0, 3*18*6)
+Scotland_zip_vector = rep(0, 3*18*6)
+Scotland_reference_vector = rep(c(102/228,82/228,44/228), 18*6)
 
-for(j in 5:37){
+for(j in 20:37){
 Scotland_poisson_model_home <- glm(home_team_goal ~ home_team_name + away_team_name, family = "poisson", data = subset(Scotland_data, stage %in% 1:j))
 Scotland_poisson_model_away <- glm(away_team_goal ~ home_team_name + away_team_name, family = "poisson", data = subset(Scotland_data, stage %in% 1:j))
 Scotland_nb_model_home <- glm.nb(home_team_goal ~ home_team_name + away_team_name, data = subset(Scotland_data, stage %in% 1:j))
@@ -985,60 +1306,150 @@ Scotland_zip_model_home <- zeroinfl(home_team_goal ~ home_team_name + away_team_
 Scotland_zip_model_away <- zeroinfl(away_team_goal ~ home_team_name + away_team_name, data = subset(Scotland_data, stage %in% 1:j))
 
 
-
 Scotland_temp = subset(Scotland_data, stage == j+1)
-vector_1 = rep(0, 3*nrow(Scotland_temp))
-vector_2 = rep(0, 3*nrow(Scotland_temp))
-vector_3 = rep(0, 3*nrow(Scotland_temp))
-vector_4 = rep(0, 3*nrow(Scotland_temp))
-vector_5 = rep(c(102/228,82/228,44/228), nrow(Scotland_temp))
+
 
 for(i in 1:nrow(Scotland_temp)) {
 
-vector_2[3*(i-1)+1] = ifelse(Scotland_temp[i,]$home_team_goal > Scotland_temp[i,]$away_team_goal, 1, 0)
-vector_2[3*(i-1)+2] = ifelse(Scotland_temp[i,]$home_team_goal < Scotland_temp[i,]$away_team_goal, 1, 0)
-vector_2[3*(i-1)+3] = ifelse(Scotland_temp[i,]$home_team_goal == Scotland_temp[i,]$away_team_goal, 1, 0) 
+Scotland_real_vector[18*(j-20)+3*(i-1)+1] = ifelse(Scotland_temp[i,]$home_team_goal > Scotland_temp[i,]$away_team_goal, 1, 0)
+Scotland_real_vector[18*(j-20)+3*(i-1)+2] = ifelse(Scotland_temp[i,]$home_team_goal < Scotland_temp[i,]$away_team_goal, 1, 0)
+Scotland_real_vector[18*(j-20)+3*(i-1)+3] = ifelse(Scotland_temp[i,]$home_team_goal == Scotland_temp[i,]$away_team_goal, 1, 0) 
   
 
-Scotland_home_predict_poisson = rpois(n = 500,  lambda = predict(Scotland_poisson_model_home, Scotland_temp[i,], type = "response"))
-Scotland_away_predict_poisson = rpois(n = 500,  lambda = predict(Scotland_poisson_model_away, Scotland_temp[i,], type = "response"))
-vector_1[3*(i-1)+1] = sum(Scotland_home_predict_poisson > Scotland_away_predict_poisson) / 500
-vector_1[3*(i-1)+2] = sum(Scotland_home_predict_poisson < Scotland_away_predict_poisson) / 500
-vector_1[3*(i-1)+3] = sum(Scotland_home_predict_poisson == Scotland_away_predict_poisson) / 500
+Scotland_home_predict_poisson = rpois(n = 1500,  lambda = predict(Scotland_poisson_model_home, Scotland_temp[i,], type = "response"))
+Scotland_away_predict_poisson = rpois(n = 1500,  lambda = predict(Scotland_poisson_model_away, Scotland_temp[i,], type = "response"))
+Scotland_poisson_vector[18*(j-20)+3*(i-1)+1] = sum(Scotland_home_predict_poisson > Scotland_away_predict_poisson) / 1500
+Scotland_poisson_vector[18*(j-20)+3*(i-1)+2] = sum(Scotland_home_predict_poisson < Scotland_away_predict_poisson) / 1500
+Scotland_poisson_vector[18*(j-20)+3*(i-1)+3] = sum(Scotland_home_predict_poisson == Scotland_away_predict_poisson) / 1500
 
 
-Scotland_home_predict_nb = rnbinom(n = 500,  size = Scotland_nb_model_home$theta,
+Scotland_home_predict_nb = rnbinom(n = 1500,  size = Scotland_nb_model_home$theta,
                                               mu = predict(Scotland_nb_model_home, Scotland_temp[i,], type = "response"))
-Scotland_away_predict_nb = rnbinom(n = 500,  size = Scotland_nb_model_away$theta,
+Scotland_away_predict_nb = rnbinom(n = 1500,  size = Scotland_nb_model_away$theta,
                                               mu = predict(Scotland_nb_model_away, Scotland_temp[i,], type = "response"))
-vector_3[3*(i-1)+1] = sum(Scotland_home_predict_nb > Scotland_away_predict_nb) / 500
-vector_3[3*(i-1)+2] = sum(Scotland_home_predict_nb < Scotland_away_predict_nb) / 500
-vector_3[3*(i-1)+3] = sum(Scotland_home_predict_nb == Scotland_away_predict_nb) / 500
+Scotland_nb_vector[18*(j-20)+3*(i-1)+1] = sum(Scotland_home_predict_nb > Scotland_away_predict_nb) / 1500
+Scotland_nb_vector[18*(j-20)+3*(i-1)+2] = sum(Scotland_home_predict_nb < Scotland_away_predict_nb) / 1500
+Scotland_nb_vector[18*(j-20)+3*(i-1)+3] = sum(Scotland_home_predict_nb == Scotland_away_predict_nb) / 1500
 
 
-Scotland_home_predict_zip = rzipois(n = 500, lambda = predict(Scotland_zip_model_home,Scotland_temp[i,],type = "count"), 
+Scotland_home_predict_zip = rzipois(n = 1500, lambda = predict(Scotland_zip_model_home,Scotland_temp[i,],type = "count"), 
                                                pstr0 = predict(Scotland_zip_model_home,Scotland_temp[i,],type = "zero"))
-Scotland_away_predict_zip = rzipois(n = 500, lambda = predict(Scotland_zip_model_away,Scotland_temp[i,],type = "count"), 
+Scotland_away_predict_zip = rzipois(n = 1500, lambda = predict(Scotland_zip_model_away,Scotland_temp[i,],type = "count"), 
                                                pstr0 = predict(Scotland_zip_model_away,Scotland_temp[i,],type = "zero"))
-vector_4[3*(i-1)+1] = sum(Scotland_home_predict_zip > Scotland_away_predict_zip) / 500
-vector_4[3*(i-1)+2] = sum(Scotland_home_predict_zip < Scotland_away_predict_zip) / 500
-vector_4[3*(i-1)+3] = sum(Scotland_home_predict_zip == Scotland_away_predict_zip) / 500
+Scotland_zip_vector[18*(j-20)+3*(i-1)+1] = sum(Scotland_home_predict_zip > Scotland_away_predict_zip) / 1500
+Scotland_zip_vector[18*(j-20)+3*(i-1)+2] = sum(Scotland_home_predict_zip < Scotland_away_predict_zip) / 1500
+Scotland_zip_vector[18*(j-20)+3*(i-1)+3] = sum(Scotland_home_predict_zip == Scotland_away_predict_zip) / 1500
 
 }
 
-Scotland_reference = sum((vector_5 - vector_2)^2) / (3*nrow(Scotland_temp))
-Scotland_poisson_brier_vector[j-4] = 1 - (sum((vector_1 - vector_2)^2) / (3*nrow(Scotland_temp)))/Scotland_reference
-Scotland_nb_brier_vector[j-4] = 1- (sum((vector_3 - vector_2)^2) / (3*nrow(Scotland_temp)))/Scotland_reference
-Scotland_zip_brier_vector[j-4] = 1 - (sum((vector_4 - vector_2)^2) / (3*nrow(Scotland_temp)))/Scotland_reference
-
 }
 
-Scotland_brier_skill = as.data.frame(cbind(Scotland_poisson_brier_vector, Scotland_nb_brier_vector, Scotland_zip_brier_vector)) %>% transmute(Poisson = Scotland_poisson_brier_vector, NB = Scotland_nb_brier_vector, ZIP = Scotland_zip_brier_vector,stage=5:37) %>% pivot_longer(cols = Poisson:ZIP, names_to = "methods", values_to = "brier skill score")
+Scotland_poisson_brier_vector = rep(0, 18)
+Scotland_nb_brier_vector = rep(0, 18)
+Scotland_zip_brier_vector = rep(0, 18)
+
+for(k in 1:18) {
+    Scotland_reference_brier = 
+      sum((Scotland_reference_vector[1:(18*k)] - Scotland_real_vector[1:(18*k)])^2) / (18*k)
+    Scotland_poisson_brier_vector[k] = 
+      1 - (sum((Scotland_poisson_vector[1:(18*k)] - Scotland_real_vector[1:(18*k)])^2)/(18*k))/Scotland_reference_brier
+   Scotland_nb_brier_vector[k] = 
+      1 - (sum((Scotland_nb_vector[1:(18*k)] - Scotland_real_vector[1:(18*k)])^2)/(18*k))/Scotland_reference_brier
+    Scotland_zip_brier_vector[k] = 
+      1 - (sum((Scotland_zip_vector[1:(18*k)] - Scotland_real_vector[1:(18*k)])^2)/(18*k))/Scotland_reference_brier
+}
+
+sum((Scotland_poisson_vector[1:(18*10)] - Scotland_real_vector[1:(18*10)])^2)/(18*10)
+sum((Scotland_nb_vector[1:(18*10)] - Scotland_real_vector[1:(18*10)])^2)/(18*10)
+sum((Scotland_zip_vector[1:(18*10)] - Scotland_real_vector[1:(18*10)])^2)/(18*10)
+
+
+Scotland_brier_skill = as.data.frame(cbind(Scotland_poisson_brier_vector, Scotland_nb_brier_vector, Scotland_zip_brier_vector)) %>% transmute(Poisson = Scotland_poisson_brier_vector, NB = Scotland_nb_brier_vector, ZIP = Scotland_zip_brier_vector,stage=21:38) %>% pivot_longer(cols = Poisson:ZIP, names_to = "methods", values_to = "brier skill score")
 
 ggplot(data = Scotland_brier_skill) + geom_line(aes(x = stage, y = `brier skill score`,color = methods))+ xlab("test_stage") + ylab("Scotland Brier Skill Score")+theme_bw()
 ```
+
+
+
+
+```{r, warning = FALSE}
+i = Scotland_data$home_team_goal
+Scotland_data_fit_poisson = fitdistr(i, densfun = "poisson")
+Scotland_data_fit_poisson$loglik
+Scotland_data_fit_nb = fitdistr(i, densfun = "Negative Binomial")
+Scotland_data_fit_nb$loglik # pick
+Scotland_data_fit_zip <- fitdist(i, distr = 'zip',start = list(lambda=mean(i),pi=sum(i == 0)/length(i)))
+Scotland_data_fit_zip$loglik
+
+# set.seed(23)
+# Scotland_poisson_brier_vector = rep(0, 28)
+# Scotland_nb_brier_vector = rep(0, 28)
+# Scotland_zip_brier_vector = rep(0, 28)
+# 
+# for(j in 10:37){
+# Scotland_poisson_model_home <- glm(home_team_goal ~ home_team_name + away_team_name, family = "poisson", data = subset(Scotland_data, stage %in% 1:j))
+# Scotland_poisson_model_away <- glm(away_team_goal ~ home_team_name + away_team_name, family = "poisson", data = subset(Scotland_data, stage %in% 1:j))
+# Scotland_nb_model_home <- glm.nb(home_team_goal ~ home_team_name + away_team_name, data = subset(Scotland_data, stage %in% 1:j))
+# Scotland_nb_model_away <- glm.nb(away_team_goal ~ home_team_name + away_team_name, data = subset(Scotland_data, stage %in% 1:j))
+# Scotland_zip_model_home <- zeroinfl(home_team_goal ~ home_team_name + away_team_name, data = subset(Scotland_data, stage %in% 1:j))
+# Scotland_zip_model_away <- zeroinfl(away_team_goal ~ home_team_name + away_team_name, data = subset(Scotland_data, stage %in% 1:j))
+# 
+# 
+# 
+# Scotland_temp = subset(Scotland_data, stage == j+1)
+# vector_1 = rep(0, 3*nrow(Scotland_temp))
+# vector_2 = rep(0, 3*nrow(Scotland_temp))
+# vector_3 = rep(0, 3*nrow(Scotland_temp))
+# vector_4 = rep(0, 3*nrow(Scotland_temp))
+# vector_5 = rep(c(102/228,82/228,44/228), nrow(Scotland_temp))
+# 
+# for(i in 1:nrow(Scotland_temp)) {
+# 
+# vector_2[3*(i-1)+1] = ifelse(Scotland_temp[i,]$home_team_goal > Scotland_temp[i,]$away_team_goal, 1, 0)
+# vector_2[3*(i-1)+2] = ifelse(Scotland_temp[i,]$home_team_goal < Scotland_temp[i,]$away_team_goal, 1, 0)
+# vector_2[3*(i-1)+3] = ifelse(Scotland_temp[i,]$home_team_goal == Scotland_temp[i,]$away_team_goal, 1, 0) 
+#   
+# 
+# Scotland_home_predict_poisson = rpois(n = 1500,  lambda = predict(Scotland_poisson_model_home, Scotland_temp[i,], type = "response"))
+# Scotland_away_predict_poisson = rpois(n = 1500,  lambda = predict(Scotland_poisson_model_away, Scotland_temp[i,], type = "response"))
+# vector_1[3*(i-1)+1] = sum(Scotland_home_predict_poisson > Scotland_away_predict_poisson) / 1500
+# vector_1[3*(i-1)+2] = sum(Scotland_home_predict_poisson < Scotland_away_predict_poisson) / 1500
+# vector_1[3*(i-1)+3] = sum(Scotland_home_predict_poisson == Scotland_away_predict_poisson) / 1500
+# 
+# 
+# Scotland_home_predict_nb = rnbinom(n = 1500,  size = Scotland_nb_model_home$theta,
+#                                               mu = predict(Scotland_nb_model_home, Scotland_temp[i,], type = "response"))
+# Scotland_away_predict_nb = rnbinom(n = 1500,  size = Scotland_nb_model_away$theta,
+#                                               mu = predict(Scotland_nb_model_away, Scotland_temp[i,], type = "response"))
+# vector_3[3*(i-1)+1] = sum(Scotland_home_predict_nb > Scotland_away_predict_nb) / 1500
+# vector_3[3*(i-1)+2] = sum(Scotland_home_predict_nb < Scotland_away_predict_nb) / 1500
+# vector_3[3*(i-1)+3] = sum(Scotland_home_predict_nb == Scotland_away_predict_nb) / 1500
+# 
+# 
+# Scotland_home_predict_zip = rzipois(n = 1500, lambda = predict(Scotland_zip_model_home,Scotland_temp[i,],type = "count"), 
+#                                                pstr0 = predict(Scotland_zip_model_home,Scotland_temp[i,],type = "zero"))
+# Scotland_away_predict_zip = rzipois(n = 1500, lambda = predict(Scotland_zip_model_away,Scotland_temp[i,],type = "count"), 
+#                                                pstr0 = predict(Scotland_zip_model_away,Scotland_temp[i,],type = "zero"))
+# vector_4[3*(i-1)+1] = sum(Scotland_home_predict_zip > Scotland_away_predict_zip) / 1500
+# vector_4[3*(i-1)+2] = sum(Scotland_home_predict_zip < Scotland_away_predict_zip) / 1500
+# vector_4[3*(i-1)+3] = sum(Scotland_home_predict_zip == Scotland_away_predict_zip) / 1500
+# 
+# }
+# 
+# Scotland_reference = sum((vector_5 - vector_2)^2) / (3*nrow(Scotland_temp))
+# Scotland_poisson_brier_vector[j-9] = 1 - (sum((vector_1 - vector_2)^2) / (3*nrow(Scotland_temp)))/Scotland_reference
+# Scotland_nb_brier_vector[j-9] = 1- (sum((vector_3 - vector_2)^2) / (3*nrow(Scotland_temp)))/Scotland_reference
+# Scotland_zip_brier_vector[j-9] = 1 - (sum((vector_4 - vector_2)^2) / (3*nrow(Scotland_temp)))/Scotland_reference
+# 
+# }
+# 
+# Scotland_brier_skill = as.data.frame(cbind(Scotland_poisson_brier_vector, Scotland_nb_brier_vector, Scotland_zip_brier_vector)) %>% transmute(Poisson = Scotland_poisson_brier_vector, NB = Scotland_nb_brier_vector, ZIP = Scotland_zip_brier_vector,stage=10:37) %>% pivot_longer(cols = Poisson:ZIP, names_to = "methods", values_to = "brier skill score")
+# 
+# ggplot(data = Scotland_brier_skill) + geom_line(aes(x = stage, y = `brier skill score`,color = methods))+ xlab("test_stage") + ylab("Scotland Brier Skill Score")+theme_bw()
+```
 ```{r}
 #Spain
+table(Spain_data$stage)
 dim(Spain_data_old)
 sum(Spain_data_old$home_team_goal > Spain_data_old$away_team_goal)
 sum(Spain_data_old$home_team_goal < Spain_data_old$away_team_goal)
@@ -1046,21 +1457,15 @@ sum(Spain_data_old$home_team_goal == Spain_data_old$away_team_goal)
 ```
 
 
-```{r, warning = FALSE}
-# j = Spain_data$home_team_goal
-# Spain_data_fit_poisson = fitdistr(j, densfun = "poisson")
-# Spain_data_fit_poisson$loglik
-# Spain_data_fit_nb = fitdistr(j, densfun = "Negative Binomial")
-# Spain_data_fit_nb$loglik # pick
-# Spain_data_fit_zip <- fitdist(j, distr = 'zip',start = list(lambda=mean(j),pi=sum(j == 0)/length(j)))
-# Spain_data_fit_zip$loglik
-
+```{r, warning = FALSE, message=FALSE}
 set.seed(23)
-Spain_poisson_brier_vector = rep(0, 33)
-Spain_nb_brier_vector = rep(0, 33)
-Spain_zip_brier_vector = rep(0, 33)
+Spain_real_vector = rep(0,3*18*10)
+Spain_poisson_vector = rep(0, 3*18*10)
+Spain_nb_vector = rep(0, 3*18*10)
+Spain_zip_vector = rep(0, 3*18*10)
+Spain_reference_vector = rep(c(171/380,118/380,91/380), 18*10)
 
-for(j in 5:37){
+for(j in 20:37){
 Spain_poisson_model_home <- glm(home_team_goal ~ home_team_name + away_team_name, family = "poisson", data = subset(Spain_data, stage %in% 1:j))
 Spain_poisson_model_away <- glm(away_team_goal ~ home_team_name + away_team_name, family = "poisson", data = subset(Spain_data, stage %in% 1:j))
 Spain_nb_model_home <- glm.nb(home_team_goal ~ home_team_name + away_team_name, data = subset(Spain_data, stage %in% 1:j))
@@ -1070,80 +1475,159 @@ Spain_zip_model_away <- zeroinfl(away_team_goal ~ home_team_name + away_team_nam
 
 
 Spain_temp = subset(Spain_data, stage == j+1)
-vector_1 = rep(0, 3*nrow(Spain_temp))
-vector_2 = rep(0, 3*nrow(Spain_temp))
-vector_3 = rep(0, 3*nrow(Spain_temp))
-vector_4 = rep(0, 3*nrow(Spain_temp))
-vector_5 = rep(c(171/380,118/380,91/380), nrow(Spain_temp))
+
 
 for(i in 1:nrow(Spain_temp)) {
 
-vector_2[3*(i-1)+1] = ifelse(Spain_temp[i,]$home_team_goal > Spain_temp[i,]$away_team_goal, 1, 0)
-vector_2[3*(i-1)+2] = ifelse(Spain_temp[i,]$home_team_goal < Spain_temp[i,]$away_team_goal, 1, 0)
-vector_2[3*(i-1)+3] = ifelse(Spain_temp[i,]$home_team_goal == Spain_temp[i,]$away_team_goal, 1, 0) 
+Spain_real_vector[30*(j-20)+3*(i-1)+1] = ifelse(Spain_temp[i,]$home_team_goal > Spain_temp[i,]$away_team_goal, 1, 0)
+Spain_real_vector[30*(j-20)+3*(i-1)+2] = ifelse(Spain_temp[i,]$home_team_goal < Spain_temp[i,]$away_team_goal, 1, 0)
+Spain_real_vector[30*(j-20)+3*(i-1)+3] = ifelse(Spain_temp[i,]$home_team_goal == Spain_temp[i,]$away_team_goal, 1, 0) 
   
 
-Spain_home_predict_poisson = rpois(n = 500,  lambda = predict(Spain_poisson_model_home, Spain_temp[i,], type = "response"))
-Spain_away_predict_poisson = rpois(n = 500,  lambda = predict(Spain_poisson_model_away, Spain_temp[i,], type = "response"))
-vector_1[3*(i-1)+1] = sum(Spain_home_predict_poisson > Spain_away_predict_poisson) / 500
-vector_1[3*(i-1)+2] = sum(Spain_home_predict_poisson < Spain_away_predict_poisson) / 500
-vector_1[3*(i-1)+3] = sum(Spain_home_predict_poisson == Spain_away_predict_poisson) / 500
+Spain_home_predict_poisson = rpois(n = 1500,  lambda = predict(Spain_poisson_model_home, Spain_temp[i,], type = "response"))
+Spain_away_predict_poisson = rpois(n = 1500,  lambda = predict(Spain_poisson_model_away, Spain_temp[i,], type = "response"))
+Spain_poisson_vector[30*(j-20)+3*(i-1)+1] = sum(Spain_home_predict_poisson > Spain_away_predict_poisson) / 1500
+Spain_poisson_vector[30*(j-20)+3*(i-1)+2] = sum(Spain_home_predict_poisson < Spain_away_predict_poisson) / 1500
+Spain_poisson_vector[30*(j-20)+3*(i-1)+3] = sum(Spain_home_predict_poisson == Spain_away_predict_poisson) / 1500
 
 
-Spain_home_predict_nb = rnbinom(n = 500,  size = Spain_nb_model_home$theta,
+Spain_home_predict_nb = rnbinom(n = 1500,  size = Spain_nb_model_home$theta,
                                               mu = predict(Spain_nb_model_home, Spain_temp[i,], type = "response"))
-Spain_away_predict_nb = rnbinom(n = 500,  size = Spain_nb_model_away$theta,
+Spain_away_predict_nb = rnbinom(n = 1500,  size = Spain_nb_model_away$theta,
                                               mu = predict(Spain_nb_model_away, Spain_temp[i,], type = "response"))
-vector_3[3*(i-1)+1] = sum(Spain_home_predict_nb > Spain_away_predict_nb) / 500
-vector_3[3*(i-1)+2] = sum(Spain_home_predict_nb < Spain_away_predict_nb) / 500
-vector_3[3*(i-1)+3] = sum(Spain_home_predict_nb == Spain_away_predict_nb) / 500
+Spain_nb_vector[30*(j-20)+3*(i-1)+1] = sum(Spain_home_predict_nb > Spain_away_predict_nb) / 1500
+Spain_nb_vector[30*(j-20)+3*(i-1)+2] = sum(Spain_home_predict_nb < Spain_away_predict_nb) / 1500
+Spain_nb_vector[30*(j-20)+3*(i-1)+3] = sum(Spain_home_predict_nb == Spain_away_predict_nb) / 1500
 
 
-Spain_home_predict_zip = rzipois(n = 500, lambda = predict(Spain_zip_model_home,Spain_temp[i,],type = "count"), 
+Spain_home_predict_zip = rzipois(n = 1500, lambda = predict(Spain_zip_model_home,Spain_temp[i,],type = "count"), 
                                                pstr0 = predict(Spain_zip_model_home,Spain_temp[i,],type = "zero"))
-Spain_away_predict_zip = rzipois(n = 500, lambda = predict(Spain_zip_model_away,Spain_temp[i,],type = "count"), 
+Spain_away_predict_zip = rzipois(n = 1500, lambda = predict(Spain_zip_model_away,Spain_temp[i,],type = "count"), 
                                                pstr0 = predict(Spain_zip_model_away,Spain_temp[i,],type = "zero"))
-vector_4[3*(i-1)+1] = sum(Spain_home_predict_zip > Spain_away_predict_zip) / 500
-vector_4[3*(i-1)+2] = sum(Spain_home_predict_zip < Spain_away_predict_zip) / 500
-vector_4[3*(i-1)+3] = sum(Spain_home_predict_zip == Spain_away_predict_zip) / 500
+Spain_zip_vector[30*(j-20)+3*(i-1)+1] = sum(Spain_home_predict_zip > Spain_away_predict_zip) / 1500
+Spain_zip_vector[30*(j-20)+3*(i-1)+2] = sum(Spain_home_predict_zip < Spain_away_predict_zip) / 1500
+Spain_zip_vector[30*(j-20)+3*(i-1)+3] = sum(Spain_home_predict_zip == Spain_away_predict_zip) / 1500
 
 }
-Spain_reference = sum((vector_5 - vector_2)^2) / (3*nrow(Spain_temp))
-Spain_poisson_brier_vector[j-4] = 1 - (sum((vector_1 - vector_2)^2) / (3*nrow(Spain_temp)))/Spain_reference
-Spain_nb_brier_vector[j-4] = 1- (sum((vector_3 - vector_2)^2) / (3*nrow(Spain_temp)))/Spain_reference
-Spain_zip_brier_vector[j-4] = 1 - (sum((vector_4 - vector_2)^2) / (3*nrow(Spain_temp)))/Spain_reference
+}
+Spain_poisson_brier_vector = rep(0, 18)
+Spain_nb_brier_vector = rep(0, 18)
+Spain_zip_brier_vector = rep(0, 18)
 
+for(k in 1:18) {
+    Spain_reference_brier = 
+      sum((Spain_reference_vector[1:(30*k)] - Spain_real_vector[1:(30*k)])^2) / (30*k)
+    Spain_poisson_brier_vector[k] = 
+      1 - (sum((Spain_poisson_vector[1:(30*k)] - Spain_real_vector[1:(30*k)])^2)/(30*k))/Spain_reference_brier
+   Spain_nb_brier_vector[k] = 
+      1 - (sum((Spain_nb_vector[1:(30*k)] - Spain_real_vector[1:(30*k)])^2)/(30*k))/Spain_reference_brier
+    Spain_zip_brier_vector[k] = 
+      1 - (sum((Spain_zip_vector[1:(30*k)] - Spain_real_vector[1:(30*k)])^2)/(30*k))/Spain_reference_brier
 }
 
-Spain_brier_skill = as.data.frame(cbind(Spain_poisson_brier_vector, Spain_nb_brier_vector, Spain_zip_brier_vector)) %>% transmute(Poisson = Spain_poisson_brier_vector, NB = Spain_nb_brier_vector, ZIP = Spain_zip_brier_vector,stage=5:37) %>% pivot_longer(cols = Poisson:ZIP, names_to = "methods", values_to = "brier skill score")
+sum((Spain_poisson_vector[1:(30*10)] - Spain_real_vector[1:(30*10)])^2)/(30*10)
+sum((Spain_nb_vector[1:(30*10)] - Spain_real_vector[1:(30*10)])^2)/(30*10)
+sum((Spain_zip_vector[1:(30*10)] - Spain_real_vector[1:(30*10)])^2)/(30*10)
+
+Spain_brier_skill = as.data.frame(cbind(Spain_poisson_brier_vector, Spain_nb_brier_vector, Spain_zip_brier_vector)) %>% transmute(Poisson = Spain_poisson_brier_vector, NB = Spain_nb_brier_vector, ZIP = Spain_zip_brier_vector,stage=21:38) %>% pivot_longer(cols = Poisson:ZIP, names_to = "methods", values_to = "brier skill score")
 
 ggplot(data = Spain_brier_skill) + geom_line(aes(x = stage, y = `brier skill score`,color = methods))+ xlab("test_stage") + ylab("Spain Brier Skill Score")+theme_bw()
 ```
 
 
+```{r, warning = FALSE}
+j = Spain_data$home_team_goal
+Spain_data_fit_poisson = fitdistr(j, densfun = "poisson")
+Spain_data_fit_poisson$loglik
+Spain_data_fit_nb = fitdistr(j, densfun = "Negative Binomial")
+Spain_data_fit_nb$loglik # pick
+Spain_data_fit_zip <- fitdist(j, distr = 'zip',start = list(lambda=mean(j),pi=sum(j == 0)/length(j)))
+Spain_data_fit_zip$loglik
+
+# set.seed(23)
+# Spain_poisson_brier_vector = rep(0, 28)
+# Spain_nb_brier_vector = rep(0, 28)
+# Spain_zip_brier_vector = rep(0, 28)
+# 
+# for(j in 10:37){
+# Spain_poisson_model_home <- glm(home_team_goal ~ home_team_name + away_team_name, family = "poisson", data = subset(Spain_data, stage %in% 1:j))
+# Spain_poisson_model_away <- glm(away_team_goal ~ home_team_name + away_team_name, family = "poisson", data = subset(Spain_data, stage %in% 1:j))
+# Spain_nb_model_home <- glm.nb(home_team_goal ~ home_team_name + away_team_name, data = subset(Spain_data, stage %in% 1:j))
+# Spain_nb_model_away <- glm.nb(away_team_goal ~ home_team_name + away_team_name, data = subset(Spain_data, stage %in% 1:j))
+# Spain_zip_model_home <- zeroinfl(home_team_goal ~ home_team_name + away_team_name, data = subset(Spain_data, stage %in% 1:j))
+# Spain_zip_model_away <- zeroinfl(away_team_goal ~ home_team_name + away_team_name, data = subset(Spain_data, stage %in% 1:j))
+# 
+# 
+# Spain_temp = subset(Spain_data, stage == j+1)
+# vector_1 = rep(0, 3*nrow(Spain_temp))
+# vector_2 = rep(0, 3*nrow(Spain_temp))
+# vector_3 = rep(0, 3*nrow(Spain_temp))
+# vector_4 = rep(0, 3*nrow(Spain_temp))
+# vector_5 = rep(c(171/380,118/380,91/380), nrow(Spain_temp))
+# 
+# for(i in 1:nrow(Spain_temp)) {
+# 
+# vector_2[3*(i-1)+1] = ifelse(Spain_temp[i,]$home_team_goal > Spain_temp[i,]$away_team_goal, 1, 0)
+# vector_2[3*(i-1)+2] = ifelse(Spain_temp[i,]$home_team_goal < Spain_temp[i,]$away_team_goal, 1, 0)
+# vector_2[3*(i-1)+3] = ifelse(Spain_temp[i,]$home_team_goal == Spain_temp[i,]$away_team_goal, 1, 0) 
+#   
+# 
+# Spain_home_predict_poisson = rpois(n = 1500,  lambda = predict(Spain_poisson_model_home, Spain_temp[i,], type = "response"))
+# Spain_away_predict_poisson = rpois(n = 1500,  lambda = predict(Spain_poisson_model_away, Spain_temp[i,], type = "response"))
+# vector_1[3*(i-1)+1] = sum(Spain_home_predict_poisson > Spain_away_predict_poisson) / 1500
+# vector_1[3*(i-1)+2] = sum(Spain_home_predict_poisson < Spain_away_predict_poisson) / 1500
+# vector_1[3*(i-1)+3] = sum(Spain_home_predict_poisson == Spain_away_predict_poisson) / 1500
+# 
+# 
+# Spain_home_predict_nb = rnbinom(n = 1500,  size = Spain_nb_model_home$theta,
+#                                               mu = predict(Spain_nb_model_home, Spain_temp[i,], type = "response"))
+# Spain_away_predict_nb = rnbinom(n = 1500,  size = Spain_nb_model_away$theta,
+#                                               mu = predict(Spain_nb_model_away, Spain_temp[i,], type = "response"))
+# vector_3[3*(i-1)+1] = sum(Spain_home_predict_nb > Spain_away_predict_nb) / 1500
+# vector_3[3*(i-1)+2] = sum(Spain_home_predict_nb < Spain_away_predict_nb) / 1500
+# vector_3[3*(i-1)+3] = sum(Spain_home_predict_nb == Spain_away_predict_nb) / 1500
+# 
+# 
+# Spain_home_predict_zip = rzipois(n = 1500, lambda = predict(Spain_zip_model_home,Spain_temp[i,],type = "count"), 
+#                                                pstr0 = predict(Spain_zip_model_home,Spain_temp[i,],type = "zero"))
+# Spain_away_predict_zip = rzipois(n = 1500, lambda = predict(Spain_zip_model_away,Spain_temp[i,],type = "count"), 
+#                                                pstr0 = predict(Spain_zip_model_away,Spain_temp[i,],type = "zero"))
+# vector_4[3*(i-1)+1] = sum(Spain_home_predict_zip > Spain_away_predict_zip) / 1500
+# vector_4[3*(i-1)+2] = sum(Spain_home_predict_zip < Spain_away_predict_zip) / 1500
+# vector_4[3*(i-1)+3] = sum(Spain_home_predict_zip == Spain_away_predict_zip) / 1500
+# 
+# }
+# Spain_reference = sum((vector_5 - vector_2)^2) / (3*nrow(Spain_temp))
+# Spain_poisson_brier_vector[j-9] = 1 - (sum((vector_1 - vector_2)^2) / (3*nrow(Spain_temp)))/Spain_reference
+# Spain_nb_brier_vector[j-9] = 1- (sum((vector_3 - vector_2)^2) / (3*nrow(Spain_temp)))/Spain_reference
+# Spain_zip_brier_vector[j-9] = 1 - (sum((vector_4 - vector_2)^2) / (3*nrow(Spain_temp)))/Spain_reference
+# 
+# }
+# 
+# Spain_brier_skill = as.data.frame(cbind(Spain_poisson_brier_vector, Spain_nb_brier_vector, Spain_zip_brier_vector)) %>% transmute(Poisson = Spain_poisson_brier_vector, NB = Spain_nb_brier_vector, ZIP = Spain_zip_brier_vector,stage=10:37) %>% pivot_longer(cols = Poisson:ZIP, names_to = "methods", values_to = "brier skill score")
+# 
+# ggplot(data = Spain_brier_skill) + geom_line(aes(x = stage, y = `brier skill score`,color = methods))+ xlab("test_stage") + ylab("Spain Brier Skill Score")+theme_bw()
+```
+
+
 ```{r}
 #Switzerland
+table(Switzerland_data$stage)
 dim(Switzerland_data_old)
 sum(Switzerland_data_old$home_team_goal > Switzerland_data_old$away_team_goal)
 sum(Switzerland_data_old$home_team_goal < Switzerland_data_old$away_team_goal)
 sum(Switzerland_data_old$home_team_goal == Switzerland_data_old$away_team_goal)
 ```
 
-
-```{r, warning = FALSE}
-# k = Switzerland_data$home_team_goal
-# Switzerland_data_fit_poisson = fitdistr(k, densfun = "poisson")
-# table(Switzerland_data$stage)
-# Switzerland_data_fit_poisson$loglik
-# Switzerland_data_fit_nb = fitdistr(k, densfun = "Negative Binomial")
-# Switzerland_data_fit_nb$loglik
-
+```{r, warning=FALSE, message=FALSE}
 set.seed(23)
-Switzerland_poisson_brier_vector = rep(0, 31)
-Switzerland_nb_brier_vector = rep(0, 31)
-Switzerland_zip_brier_vector = rep(0, 31)
+Switzerland_real_vector = rep(0,3*16*5)
+Switzerland_poisson_vector = rep(0, 3*16*5)
+Switzerland_nb_vector = rep(0, 3*16*5)
+Switzerland_zip_vector = rep(0, 3*16*5)
+Switzerland_reference_vector = rep(c(76/180,56/180,48/180), 16*5)
 
-for(j in 5:35){
+for(j in 20:35){
 Switzerland_poisson_model_home <- glm(home_team_goal ~ home_team_name + away_team_name, family = "poisson", data = subset(Switzerland_data, stage %in% 1:j))
 Switzerland_poisson_model_away <- glm(away_team_goal ~ home_team_name + away_team_name, family = "poisson", data = subset(Switzerland_data, stage %in% 1:j))
 Switzerland_nb_model_home <- glm.nb(home_team_goal ~ home_team_name + away_team_name, data = subset(Switzerland_data, stage %in% 1:j))
@@ -1152,137 +1636,184 @@ Switzerland_zip_model_home <- zeroinfl(home_team_goal ~ home_team_name + away_te
 Switzerland_zip_model_away <- zeroinfl(away_team_goal ~ home_team_name + away_team_name, data = subset(Switzerland_data, stage %in% 1:j))
 
 
-
 Switzerland_temp = subset(Switzerland_data, stage == j+1)
-vector_1 = rep(0, 3*nrow(Switzerland_temp))
-vector_2 = rep(0, 3*nrow(Switzerland_temp))
-vector_3 = rep(0, 3*nrow(Switzerland_temp))
-vector_4 = rep(0, 3*nrow(Switzerland_temp))
-vector_5 = rep(c(76/180,56/180,48/180), nrow(Switzerland_temp))
+
 
 for(i in 1:nrow(Switzerland_temp)) {
 
-vector_2[3*(i-1)+1] = ifelse(Switzerland_temp[i,]$home_team_goal > Switzerland_temp[i,]$away_team_goal, 1, 0)
-vector_2[3*(i-1)+2] = ifelse(Switzerland_temp[i,]$home_team_goal < Switzerland_temp[i,]$away_team_goal, 1, 0)
-vector_2[3*(i-1)+3] = ifelse(Switzerland_temp[i,]$home_team_goal == Switzerland_temp[i,]$away_team_goal, 1, 0) 
+Switzerland_real_vector[15*(j-20)+3*(i-1)+1] = ifelse(Switzerland_temp[i,]$home_team_goal > Switzerland_temp[i,]$away_team_goal, 1, 0)
+Switzerland_real_vector[15*(j-20)+3*(i-1)+2] = ifelse(Switzerland_temp[i,]$home_team_goal < Switzerland_temp[i,]$away_team_goal, 1, 0)
+Switzerland_real_vector[15*(j-20)+3*(i-1)+3] = ifelse(Switzerland_temp[i,]$home_team_goal == Switzerland_temp[i,]$away_team_goal, 1, 0) 
   
 
-Switzerland_home_predict_poisson = rpois(n = 500,  lambda = predict(Switzerland_poisson_model_home, Switzerland_temp[i,], type = "response"))
-Switzerland_away_predict_poisson = rpois(n = 500,  lambda = predict(Switzerland_poisson_model_away, Switzerland_temp[i,], type = "response"))
-vector_1[3*(i-1)+1] = sum(Switzerland_home_predict_poisson > Switzerland_away_predict_poisson) / 500
-vector_1[3*(i-1)+2] = sum(Switzerland_home_predict_poisson < Switzerland_away_predict_poisson) / 500
-vector_1[3*(i-1)+3] = sum(Switzerland_home_predict_poisson == Switzerland_away_predict_poisson) / 500
+Switzerland_home_predict_poisson = rpois(n = 1500,  lambda = predict(Switzerland_poisson_model_home, Switzerland_temp[i,], type = "response"))
+Switzerland_away_predict_poisson = rpois(n = 1500,  lambda = predict(Switzerland_poisson_model_away, Switzerland_temp[i,], type = "response"))
+Switzerland_poisson_vector[15*(j-20)+3*(i-1)+1] = sum(Switzerland_home_predict_poisson > Switzerland_away_predict_poisson) / 1500
+Switzerland_poisson_vector[15*(j-20)+3*(i-1)+2] = sum(Switzerland_home_predict_poisson < Switzerland_away_predict_poisson) / 1500
+Switzerland_poisson_vector[15*(j-20)+3*(i-1)+3] = sum(Switzerland_home_predict_poisson == Switzerland_away_predict_poisson) / 1500
 
 
-Switzerland_home_predict_nb = rnbinom(n = 500,  size = Switzerland_nb_model_home$theta,
+Switzerland_home_predict_nb = rnbinom(n = 1500,  size = Switzerland_nb_model_home$theta,
                                               mu = predict(Switzerland_nb_model_home, Switzerland_temp[i,], type = "response"))
-Switzerland_away_predict_nb = rnbinom(n = 500,  size = Switzerland_nb_model_away$theta,
+Switzerland_away_predict_nb = rnbinom(n = 1500,  size = Switzerland_nb_model_away$theta,
                                               mu = predict(Switzerland_nb_model_away, Switzerland_temp[i,], type = "response"))
-vector_3[3*(i-1)+1] = sum(Switzerland_home_predict_nb > Switzerland_away_predict_nb) / 500
-vector_3[3*(i-1)+2] = sum(Switzerland_home_predict_nb < Switzerland_away_predict_nb) / 500
-vector_3[3*(i-1)+3] = sum(Switzerland_home_predict_nb == Switzerland_away_predict_nb) / 500
+Switzerland_nb_vector[15*(j-20)+3*(i-1)+1] = sum(Switzerland_home_predict_nb > Switzerland_away_predict_nb) / 1500
+Switzerland_nb_vector[15*(j-20)+3*(i-1)+2] = sum(Switzerland_home_predict_nb < Switzerland_away_predict_nb) / 1500
+Switzerland_nb_vector[15*(j-20)+3*(i-1)+3] = sum(Switzerland_home_predict_nb == Switzerland_away_predict_nb) / 1500
 
 
-Switzerland_home_predict_zip = rzipois(n = 500, lambda = predict(Switzerland_zip_model_home,Switzerland_temp[i,],type = "count"), 
+Switzerland_home_predict_zip = rzipois(n = 1500, lambda = predict(Switzerland_zip_model_home,Switzerland_temp[i,],type = "count"), 
                                                pstr0 = predict(Switzerland_zip_model_home,Switzerland_temp[i,],type = "zero"))
-Switzerland_away_predict_zip = rzipois(n = 500, lambda = predict(Switzerland_zip_model_away,Switzerland_temp[i,],type = "count"), 
+Switzerland_away_predict_zip = rzipois(n = 1500, lambda = predict(Switzerland_zip_model_away,Switzerland_temp[i,],type = "count"), 
                                                pstr0 = predict(Switzerland_zip_model_away,Switzerland_temp[i,],type = "zero"))
-vector_4[3*(i-1)+1] = sum(Switzerland_home_predict_zip > Switzerland_away_predict_zip) / 500
-vector_4[3*(i-1)+2] = sum(Switzerland_home_predict_zip < Switzerland_away_predict_zip) / 500
-vector_4[3*(i-1)+3] = sum(Switzerland_home_predict_zip == Switzerland_away_predict_zip) / 500
+Switzerland_zip_vector[15*(j-20)+3*(i-1)+1] = sum(Switzerland_home_predict_zip > Switzerland_away_predict_zip) / 1500
+Switzerland_zip_vector[15*(j-20)+3*(i-1)+2] = sum(Switzerland_home_predict_zip < Switzerland_away_predict_zip) / 1500
+Switzerland_zip_vector[15*(j-20)+3*(i-1)+3] = sum(Switzerland_home_predict_zip == Switzerland_away_predict_zip) / 1500
 
 }
 
-Switzerland_reference = sum((vector_5 - vector_2)^2)/(3*nrow(Switzerland_temp))
-Switzerland_poisson_brier_vector[j-4] = 1 - (sum((vector_1 - vector_2)^2)/(3*nrow(Switzerland_temp)))/Switzerland_reference
-Switzerland_nb_brier_vector[j-4] = 1- (sum((vector_3 - vector_2)^2) / (3*nrow(Switzerland_temp)))/Switzerland_reference
-Switzerland_zip_brier_vector[j-4] = 1 - (sum((vector_4 - vector_2)^2) / (3*nrow(Switzerland_temp)))/Switzerland_reference
+}
+Switzerland_poisson_brier_vector = rep(0, 16)
+Switzerland_nb_brier_vector = rep(0, 16)
+Switzerland_zip_brier_vector = rep(0, 16)
 
+for(k in 1:16) {
+    Switzerland_reference_brier = 
+      sum((Switzerland_reference_vector[1:(15*k)] - Switzerland_real_vector[1:(15*k)])^2) / (15*k)
+    Switzerland_poisson_brier_vector[k] = 
+      1 - (sum((Switzerland_poisson_vector[1:(15*k)] - Switzerland_real_vector[1:(15*k)])^2)/(15*k))/Switzerland_reference_brier
+   Switzerland_nb_brier_vector[k] = 
+      1 - (sum((Switzerland_nb_vector[1:(15*k)] - Switzerland_real_vector[1:(15*k)])^2)/(15*k))/Switzerland_reference_brier
+    Switzerland_zip_brier_vector[k] = 
+      1 - (sum((Switzerland_zip_vector[1:(15*k)] - Switzerland_real_vector[1:(15*k)])^2)/(15*k))/Switzerland_reference_brier
 }
 
-Switzerland_brier_skill = as.data.frame(cbind(Switzerland_poisson_brier_vector, Switzerland_nb_brier_vector, Switzerland_zip_brier_vector)) %>% transmute(Poisson = Switzerland_poisson_brier_vector, NB = Switzerland_nb_brier_vector, ZIP = Switzerland_zip_brier_vector,stage=5:35) %>% pivot_longer(cols = Poisson:ZIP, names_to = "methods", values_to = "brier skill score")
+sum((Switzerland_poisson_vector[1:(15*k)] - Switzerland_real_vector[1:(15*k)])^2)/(15*k)
+sum((Switzerland_nb_vector[1:(15*k)] - Switzerland_real_vector[1:(15*k)])^2)/(15*k)
+sum((Switzerland_zip_vector[1:(15*k)] - Switzerland_real_vector[1:(15*k)])^2)/(15*k)
+
+
+Switzerland_brier_skill = as.data.frame(cbind(Switzerland_poisson_brier_vector, Switzerland_nb_brier_vector, Switzerland_zip_brier_vector)) %>% transmute(Poisson = Switzerland_poisson_brier_vector, NB = Switzerland_nb_brier_vector, ZIP = Switzerland_zip_brier_vector,stage=21:36) %>% pivot_longer(cols = Poisson:ZIP, names_to = "methods", values_to = "brier skill score")
 
 ggplot(data = Switzerland_brier_skill) + geom_line(aes(x = stage, y = `brier skill score`,color = methods))+ xlab("test_stage") + ylab("Switzerland Brier Skill Score")+theme_bw()
+```
 
 
-# Switzerland_poisson_model_home <- glm(home_team_goal ~ home_team_name + away_team_name, family = "poisson", data = Switzerland_data)
-# Switzerland_poisson_model_away <- glm(away_team_goal ~ home_team_name + away_team_name, family = "poisson", data = Switzerland_data)
-# Switzerland_nb_model_home <- glm.nb(home_team_goal ~ home_team_name + away_team_name, data = Switzerland_data)
-# Switzerland_nb_model_away <- glm.nb(away_team_goal ~ home_team_name + away_team_name, data = Switzerland_data)
-# Switzerland_zip_model_home <- zeroinfl(home_team_goal ~ home_team_name + away_team_name, data = Switzerland_data)
-# Switzerland_zip_model_away <- zeroinfl(away_team_goal ~ home_team_name + away_team_name, data = Switzerland_data)
-# 
-# 
+```{r, warning = FALSE}
+k = Switzerland_data$home_team_goal
+Switzerland_data_fit_poisson = fitdistr(k, densfun = "poisson")
+Switzerland_data_fit_poisson$loglik
+Switzerland_data_fit_nb = fitdistr(k, densfun = "Negative Binomial")
+Switzerland_data_fit_nb$loglik
+Switzerland_data_fit_zip <- fitdist(k, distr = 'zip',start = list(lambda=mean(k),pi=sum(k == 0)/length(k)))
+Switzerland_data_fit_zip$loglik
+
 # set.seed(23)
-# vector_1 = rep(0, 540)
-# vector_2 = rep(0, 540)
-# for(i in 1:180){
-# Switzerland_home_predict_poisson = rpois(n = 500,  lambda = predict(Switzerland_poisson_model_home, Switzerland_data[i,], type = "response"))
-# Switzerland_away_predict_poisson = rpois(n = 500,  lambda = predict(Switzerland_poisson_model_away, Switzerland_data[i,], type = "response"))
-# vector_1[3*(i-1)+1] = sum(Switzerland_home_predict_poisson > Switzerland_away_predict_poisson) / 500
-# vector_1[3*(i-1)+2] = sum(Switzerland_home_predict_poisson < Switzerland_away_predict_poisson) / 500
-# vector_1[3*(i-1)+3] = sum(Switzerland_home_predict_poisson == Switzerland_away_predict_poisson) / 500
+# Switzerland_poisson_brier_vector = rep(0, 26)
+# Switzerland_nb_brier_vector = rep(0, 26)
+# Switzerland_zip_brier_vector = rep(0, 26)
 # 
-# vector_2[3*(i-1)+1] = ifelse(Switzerland_data[i,]$home_team_goal > Switzerland_data[i,]$away_team_goal, 1, 0)
-# vector_2[3*(i-1)+2] = ifelse(Switzerland_data[i,]$home_team_goal < Switzerland_data[i,]$away_team_goal, 1, 0)
-# vector_2[3*(i-1)+3] = ifelse(Switzerland_data[i,]$home_team_goal == Switzerland_data[i,]$away_team_goal, 1, 0)
+# for(j in 10:35){
+# Switzerland_poisson_model_home <- glm(home_team_goal ~ home_team_name + away_team_name, family = "poisson", data = subset(Switzerland_data, stage %in% 1:j))
+# Switzerland_poisson_model_away <- glm(away_team_goal ~ home_team_name + away_team_name, family = "poisson", data = subset(Switzerland_data, stage %in% 1:j))
+# Switzerland_nb_model_home <- glm.nb(home_team_goal ~ home_team_name + away_team_name, data = subset(Switzerland_data, stage %in% 1:j))
+# Switzerland_nb_model_away <- glm.nb(away_team_goal ~ home_team_name + away_team_name, data = subset(Switzerland_data, stage %in% 1:j))
+# Switzerland_zip_model_home <- zeroinfl(home_team_goal ~ home_team_name + away_team_name, data = subset(Switzerland_data, stage %in% 1:j))
+# Switzerland_zip_model_away <- zeroinfl(away_team_goal ~ home_team_name + away_team_name, data = subset(Switzerland_data, stage %in% 1:j))
+# 
+# 
+# 
+# Switzerland_temp = subset(Switzerland_data, stage == j+1)
+# vector_1 = rep(0, 3*nrow(Switzerland_temp))
+# vector_2 = rep(0, 3*nrow(Switzerland_temp))
+# vector_3 = rep(0, 3*nrow(Switzerland_temp))
+# vector_4 = rep(0, 3*nrow(Switzerland_temp))
+# vector_5 = rep(c(76/180,56/180,48/180), nrow(Switzerland_temp))
+# 
+# for(i in 1:nrow(Switzerland_temp)) {
+# 
+# vector_2[3*(i-1)+1] = ifelse(Switzerland_temp[i,]$home_team_goal > Switzerland_temp[i,]$away_team_goal, 1, 0)
+# vector_2[3*(i-1)+2] = ifelse(Switzerland_temp[i,]$home_team_goal < Switzerland_temp[i,]$away_team_goal, 1, 0)
+# vector_2[3*(i-1)+3] = ifelse(Switzerland_temp[i,]$home_team_goal == Switzerland_temp[i,]$away_team_goal, 1, 0) 
+#   
+# 
+# Switzerland_home_predict_poisson = rpois(n = 1500,  lambda = predict(Switzerland_poisson_model_home, Switzerland_temp[i,], type = "response"))
+# Switzerland_away_predict_poisson = rpois(n = 1500,  lambda = predict(Switzerland_poisson_model_away, Switzerland_temp[i,], type = "response"))
+# vector_1[3*(i-1)+1] = sum(Switzerland_home_predict_poisson > Switzerland_away_predict_poisson) / 1500
+# vector_1[3*(i-1)+2] = sum(Switzerland_home_predict_poisson < Switzerland_away_predict_poisson) / 1500
+# vector_1[3*(i-1)+3] = sum(Switzerland_home_predict_poisson == Switzerland_away_predict_poisson) / 1500
+# 
+# 
+# Switzerland_home_predict_nb = rnbinom(n = 1500,  size = Switzerland_nb_model_home$theta,
+#                                               mu = predict(Switzerland_nb_model_home, Switzerland_temp[i,], type = "response"))
+# Switzerland_away_predict_nb = rnbinom(n = 1500,  size = Switzerland_nb_model_away$theta,
+#                                               mu = predict(Switzerland_nb_model_away, Switzerland_temp[i,], type = "response"))
+# vector_3[3*(i-1)+1] = sum(Switzerland_home_predict_nb > Switzerland_away_predict_nb) / 1500
+# vector_3[3*(i-1)+2] = sum(Switzerland_home_predict_nb < Switzerland_away_predict_nb) / 1500
+# vector_3[3*(i-1)+3] = sum(Switzerland_home_predict_nb == Switzerland_away_predict_nb) / 1500
+# 
+# 
+# Switzerland_home_predict_zip = rzipois(n = 1500, lambda = predict(Switzerland_zip_model_home,Switzerland_temp[i,],type = "count"), 
+#                                                pstr0 = predict(Switzerland_zip_model_home,Switzerland_temp[i,],type = "zero"))
+# Switzerland_away_predict_zip = rzipois(n = 1500, lambda = predict(Switzerland_zip_model_away,Switzerland_temp[i,],type = "count"), 
+#                                                pstr0 = predict(Switzerland_zip_model_away,Switzerland_temp[i,],type = "zero"))
+# vector_4[3*(i-1)+1] = sum(Switzerland_home_predict_zip > Switzerland_away_predict_zip) / 1500
+# vector_4[3*(i-1)+2] = sum(Switzerland_home_predict_zip < Switzerland_away_predict_zip) / 1500
+# vector_4[3*(i-1)+3] = sum(Switzerland_home_predict_zip == Switzerland_away_predict_zip) / 1500
+# 
 # }
-# sum((vector_1 - vector_2)^2) / 540
 # 
+# Switzerland_reference = sum((vector_5 - vector_2)^2)/(3*nrow(Switzerland_temp))
+# Switzerland_poisson_brier_vector[j-9] = 1 - (sum((vector_1 - vector_2)^2)/(3*nrow(Switzerland_temp)))/Switzerland_reference
+# Switzerland_nb_brier_vector[j-9] = 1- (sum((vector_3 - vector_2)^2) / (3*nrow(Switzerland_temp)))/Switzerland_reference
+# Switzerland_zip_brier_vector[j-9] = 1 - (sum((vector_4 - vector_2)^2) / (3*nrow(Switzerland_temp)))/Switzerland_reference
 # 
-# 
-# vector_3 = rep(0, 540)
-# for(i in 1:180){
-# Switzerland_home_predict_nb = rnbinom(n = 500,  size = Switzerland_nb_model_home$theta,
-#                                               mu = predict(Switzerland_nb_model_home, Switzerland_data[i,], type = "response"))
-# Switzerland_away_predict_nb = rnbinom(n = 500,  size = Switzerland_nb_model_away$theta,
-#                                               mu = predict(Switzerland_nb_model_away, Switzerland_data[i,], type = "response"))
-# vector_3[3*(i-1)+1] = sum(Switzerland_home_predict_nb > Switzerland_away_predict_nb) / 500
-# vector_3[3*(i-1)+2] = sum(Switzerland_home_predict_nb < Switzerland_away_predict_nb) / 500
-# vector_3[3*(i-1)+3] = sum(Switzerland_home_predict_nb == Switzerland_away_predict_nb) / 500
 # }
-# sum((vector_3 - vector_2)^2) / 540
 # 
+# Switzerland_brier_skill = as.data.frame(cbind(Switzerland_poisson_brier_vector, Switzerland_nb_brier_vector, Switzerland_zip_brier_vector)) %>% transmute(Poisson = Switzerland_poisson_brier_vector, NB = Switzerland_nb_brier_vector, ZIP = Switzerland_zip_brier_vector,stage=10:35) %>% pivot_longer(cols = Poisson:ZIP, names_to = "methods", values_to = "brier skill score")
 # 
-# 
-# vector_4 = rep(0, 540)
-# for(i in 1:180){
-# Switzerland_home_predict_zip = rzipois(n = 500, lambda = predict(Switzerland_zip_model_home,Switzerland_data[i,],type = "count"), 
-#                                                pstr0 = predict(Switzerland_zip_model_home,Switzerland_data[i,],type = "zero"))
-# Switzerland_away_predict_zip = rzipois(n = 500, lambda = predict(Switzerland_zip_model_away,Switzerland_data[i,],type = "count"), 
-#                                                pstr0 = predict(Switzerland_zip_model_away,Switzerland_data[i,],type = "zero"))
-# vector_4[3*(i-1)+1] = sum(Switzerland_home_predict_zip > Switzerland_away_predict_zip) / 500
-# vector_4[3*(i-1)+2] = sum(Switzerland_home_predict_zip < Switzerland_away_predict_zip) / 500
-# vector_4[3*(i-1)+3] = sum(Switzerland_home_predict_zip == Switzerland_away_predict_zip) / 500
-# }
-# sum((vector_4 - vector_2)^2) / 540
-## generate simulated zip data, and then fit zinb. done. not ideal
+# ggplot(data = Switzerland_brier_skill) + geom_line(aes(x = stage, y = `brier skill score`,color = methods))+ xlab("test_stage") + ylab("Switzerland Brier Skill Score")+theme_bw()
 ```
 
 
 
+
 ```{r}
+dim(Belgium_brier_skill)
+dim(England_brier_skill)
+dim(France_brier_skill)
+dim(Germany_brier_skill)
+dim(Italy_brier_skill)
+dim(Switzerland_brier_skill)
+dim(Spain_brier_skill)
+dim(Scotland_brier_skill)
+dim(Netherland_brier_skill)
+dim(Poland_brier_skill)
+dim(Portugal_brier_skill)
 weighted_brier_score = Belgium_brier_skill
 weighted_brier_score[,3] = 8*weighted_brier_score[,3]
-weighted_brier_score[,3] = weighted_brier_score[,3] + 10*England_brier_skill[1:75,3]
-weighted_brier_score[,3] = weighted_brier_score[,3] + 10*France_brier_skill[1:75,3]
-weighted_brier_score[,3] = weighted_brier_score[,3] + 9*Germany_brier_skill[1:75,3]
-weighted_brier_score[,3] = weighted_brier_score[,3] + 10*Italy_brier_skill[1:75,3]
-weighted_brier_score[,3] = weighted_brier_score[,3] + 5*Switzerland_brier_skill[1:75,3]
-weighted_brier_score[,3] = weighted_brier_score[,3] + 10*Spain_brier_skill[1:75,3]
-weighted_brier_score[,3] = weighted_brier_score[,3] + 6*Scotland_brier_skill[1:75,3]
-weighted_brier_score[,3] = weighted_brier_score[,3] + 9*Netherland_brier_skill[1:75,3]
-weighted_brier_score[,3] = weighted_brier_score[,3] + 8*Poland_brier_skill[1:75,3]
-weighted_brier_score[,3] = weighted_brier_score[,3] + 9*Portugal_brier_skill[1:75,3]
+weighted_brier_score[,3] = weighted_brier_score[,3] + 10*England_brier_skill[25:54,3]
+weighted_brier_score[,3] = weighted_brier_score[,3] + 10*France_brier_skill[25:54,3]
+weighted_brier_score[,3] = weighted_brier_score[,3] + 9*Germany_brier_skill[13:42,3]
+weighted_brier_score[,3] = weighted_brier_score[,3] + 10*Italy_brier_skill[25:54,3]
+weighted_brier_score[,3] = weighted_brier_score[,3] + 5*Switzerland_brier_skill[19:48,3]
+weighted_brier_score[,3] = weighted_brier_score[,3] + 10*Spain_brier_skill[25:54,3]
+weighted_brier_score[,3] = weighted_brier_score[,3] + 6*Scotland_brier_skill[25:54,3]
+weighted_brier_score[,3] = weighted_brier_score[,3] + 9*Netherland_brier_skill[13:42,3]
+weighted_brier_score[,3] = weighted_brier_score[,3] + 8*Poland_brier_skill[1:30,3]
+weighted_brier_score[,3] = weighted_brier_score[,3] + 9*Portugal_brier_skill[13:42,3]
 weighted_brier_score[,3] = weighted_brier_score[,3]/(8+10+10+9+10+5+10+6+9+8+9)
 
+weighted_brier_score$stage = as.character(weighted_brier_score$stage)
 ```
 
 
 ```{r}
-tail(weighted_brier_score)
-ggplot(data = weighted_brier_score) + geom_line(aes(x = stage, y = `brier skill score`,color = methods))+ xlab("test stage") + ylab("Weighted Average Brier Skill Score")+theme_bw()
+ggplot(data = weighted_brier_score, aes(x = factor(stage), y = `brier skill score`,color = methods, group = methods)) + geom_point() + geom_line()+ xlab("Final Test Stage") + ylab("Weighted Average Brier Skill Score")+ theme_classic()
+ggsave("using_each_league_last_10_stage.png")
 ```
+
+
 
 
 
@@ -1296,9 +1827,6 @@ all_models_England <- dplyr::bind_rows(
 
 ggplot(all_models_England, aes(x = teams, y = coef, color = model))+geom_point()+coord_flip()
 ```
-
-
-
 
 
 
@@ -1535,45 +2063,6 @@ for (i in 4:35) {
   Switzerland_poisson_model_prediction <- predict(Switzerland_poisson_model, subset(Switzerland_data, stage == i+1))
   Switzerland_mse_poisson[i] = mean((Switzerland_poisson_model_prediction - subset(Switzerland_data, stage == i+1)$home_team_goal)^2)
 }
-
-```
-
-
-
-```{r}
-a = (94.5+93+91+89+96.5+88)/6
-b = (89+90+92.5+88.5+91.5+91.5)/6
-c = (88.5+93.5+93.5+88+92.5+91.5)/6
-d = (100+99+100+98+95+97.5)/6
-e = (91.5+93+90+92.5+89+91)/6
-f = (98.5+100+98+100+96.5+98)/6
-a
-b
-c
-d
-e
-f
-
-a0 = (94.5-a)^2+(93-a)^2+(91-a)^2+(89-a)^2+(96.5-a)^2+(88-a)^2
-b0 = (89-b)^2+(90-b)^2+(92.5-b)^2+(88.5-b)^2+(91.5-b)^2+(91.5-b)^2
-c0 = (88.5-c)^2+(93.5-c)^2+(93.5-c)^2+(88-c)^2+(92.5-c)^2+(91.5-c)^2
-d0 = (100-d)^2+(99-d)^2+(100-d)^2+(98-d)^2+(95-d)^2+(97.5-d)^2
-e0 = (91.5-e)^2+(93-e)^2+(90-e)^2+(92.5-e)^2+(89-e)^2+(91-e)^2
-f0 = (98.5-f)^2+(100-f)^2+(98-f)^2+(100-f)^2+(96.5-f)^2+(98-f)^2
-(a0 +b0 + c0 + d0 + e0 + f0)/30
-
-g = (a+b+c+d+e+f)/6
-g
-((a-g)^2+(b-g)^2+(c-g)^2+(d-g)^2+(e-g)^2+(f-g)^2)*6/5
-
-(((a-g)^2+(b-g)^2+(c-g)^2+(d-g)^2+(e-g)^2+(f-g)^2)*6/5 - (a0 +b0 + c0 + d0 + e0 + f0)/30)/6
-
-```
-
-
-
-```{r}
-pf(2.0332, 1, 96, lower.tail=F)
 
 ```
 
